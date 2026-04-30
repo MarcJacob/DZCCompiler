@@ -12,7 +12,7 @@ endif()
 project ("DZCCompiler")
 
 # Add source to this project's executable.
-add_executable (DZCCompiler "src/main.c" "src/compiler.c" "src/cprocess.c")
+add_executable (DZCCompiler "src/main.c" "src/cprocess.c" "src/compiler.c" "src/lexer.c")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET DZCCompiler PROPERTY CXX_STANDARD 20)

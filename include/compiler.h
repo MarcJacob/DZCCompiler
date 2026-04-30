@@ -53,11 +53,20 @@ struct token
 	byte whitespace_present;
 };
 
+// Return values for the lex function.
+enum
+{
+	LEXER_ALL_OK,
+	LEXER_INPUT_ERROR,
+};
+
 // Return values for the compile_file function.
 enum
 {
-	COMPILER_FILE_COMPILED_OK,
-	COMPILER_FAILED_WITH_ERRORS,
+	COMPILER_FILE_COMPILED_OK, // Compilation successful.
+	COMPILER_FATAL_ERROR, // Fatal error in the compiler process itself, not due to user input.
+	COMPILER_FAILED_WITH_ERRORS, // Compilation error of any kind (check this or above for "normal" errors related to user input).
+	COMPILER_LEXER_ERROR, // Failed at the Lexical Analysis stage.
 };
 
 struct lex_process;
@@ -76,7 +85,7 @@ struct lex_process_functions
 struct lex_process
 {
 	struct token_position position;
-	struct vector* token_vec;
+	struct vector token_vec;
 	struct compile_process* compiler;
 
 	// How many brackets / parenthesis are open at the current position.
@@ -101,6 +110,9 @@ struct compile_process
 	// Flags in regards to how this file should be compiled.
 	int flags;
 
+	// Current position of the compilation process.
+	struct token_position position;
+
 	// Input file structure containing the FILE handle and its absolute path.
 	struct compile_process_input_file input_file;
 
@@ -110,6 +122,14 @@ struct compile_process
 struct compile_process* compile_process_create(const char* filename, const char* filename_out, int flags);
 void compile_process_destroy(struct compile_process* process);
 
-int compile_file(const char* filename, const char* out_filename, int flags);
+struct lex_process* lex_process_create(struct compile_process* compiler, void* private_data);
+void lex_process_destroy(struct lex_process* lexer);
+
+// Start compilation for a specific file. Returns one of the COMPILER_* enumeration values.
+// If failure happened inside one of the stages, will return a general enum value indicating which stage,
+// and out_stage_error will be populated with the stage-specific error code.
+int compile_file(const char* filename, const char* out_filename, int flags, int* out_stage_error);
+
+int lex(struct lex_process* lexer);
 
 #endif // COMPILER_INCLUDED

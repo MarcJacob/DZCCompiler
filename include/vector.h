@@ -41,6 +41,18 @@ inline void vector_realloc(struct vector* vec, ui16 capacity)
 	vec->capacity = capacity;
 }
 
+// Creates a new vector for the specified item size and start capacity and returns it by value.
+// Usually it's more convenient to use the vector_create macro.
+inline struct vector vector_create_val(ui16 item_size, ui16 start_capacity)
+{
+	struct vector newVector = { 0 };
+
+	newVector.item_size = item_size;
+	vector_realloc(&newVector, start_capacity);
+
+	return newVector;
+}
+
 // Returns a void pointer to the last item in the vector.
 inline void* vector_get_item_ptr(struct vector* vec, ui16 index)
 {
@@ -82,14 +94,18 @@ inline void vector_free_ptr(struct vector* vec)
 	}
 }
 
-// Creates a new vector.
-#define vector_create(name, item_type, start_capacity)	\
-	struct vector name = {0};							\
-	name.item_size = sizeof(item_type);					\
-	vector_realloc(&name, start_capacity);				
+// Creates a new vector and returns it by value.
+#define vector_create(item_type, start_capacity)	\
+	(vector_create_val(sizeof(item_type), start_capacity))
+
+// Creates a new vector in heap and returns a pointer to it.
+#define vector_create_ptr(vecPtr, item_type, start_capacity)	\
+	vecPtr = (struct vector*)calloc(1, sizeof(struct vector));	\
+	vecPtr->item_size = sizeof(item_type);						\
+	vector_realloc(vecPtr, start_capacity)
 
 #define vector_free(name)	\
-	vector_free_ptr(&name);
+	(vector_free_ptr(&name))
 
 // Returns the item at the given index by value.
 #define vector_get_val(vec, index, item_type)			\
