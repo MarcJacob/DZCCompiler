@@ -1,0 +1,7 @@
+
+# Ignore VS stuff.
+/.vs/
+
+# Ignore build products.
+
+/out/
