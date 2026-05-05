@@ -37,7 +37,7 @@ struct token* read_token_number(struct lex_process* lexer)
 {
 	// Read number string.
 	struct string_ascii number_str = string_create_ascii("");
-	char c = peekc(lexer);
+	char c = nextc(lexer);
 
 	for (; c >= '0' && c <= '9'; c = nextc(lexer))
 	{
