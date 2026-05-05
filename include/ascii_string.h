@@ -142,4 +142,14 @@ inline void string_append_ascii(struct string_ascii* str, const char* c_str)
 	str->str[str->length] = '\0';
 }
 
+// Appends a single ASCII character to the string.
+inline void string_append_char_ascii(struct string_ascii* str, char c)
+{
+	char totally_a_string[2];
+	totally_a_string[0] = c;
+	totally_a_string[1] = '\0';
+
+	string_append_ascii(str, totally_a_string);
+}
+
 #endif // ASCII_STRING_INCLUDED

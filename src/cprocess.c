@@ -55,9 +55,9 @@ struct lex_process* lex_process_create(struct compile_process* compiler, void* p
 	process->parentheses_buffer = calloc(256, 1);
 
 	// Init functions to defaults.
-	process->functions->next_char = lex_process_next_char;
-	process->functions->peek_char = lex_process_peek_char;
-	process->functions->push_char = lex_process_push_char;
+	process->functions.next_char = lex_process_next_char;
+	process->functions.peek_char = lex_process_peek_char;
+	process->functions.push_char = lex_process_push_char;
 
 	process->position.col = 1;
 	process->position.line = 1;
@@ -76,14 +76,14 @@ void lex_process_destroy(struct lex_process* lexer)
 char lex_process_next_char(struct lex_process* process)
 {
 	struct compile_process* compiler = process->compiler;
-	compiler->position.col++;
+	process->position.col++;
 
 	// Get next character in file, and handle newline characters.
 	char c = getc(compiler->input_file.file);
 	if (c == '\n')
 	{
-		compiler->position.line++;
-		compiler->position.col = 1;
+		process->position.line++;
+		process->position.col = 1;
 	}
 
 	return c;

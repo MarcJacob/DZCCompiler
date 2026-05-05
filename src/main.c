@@ -11,26 +11,17 @@ int main(int argc, char** argv)
 {
 	printf("Hello C Compiler written in C ! Let's compile C. Maybe I'm compiling myself. How exciting.\n");
 
-	// Narrator: It doesn't actually compile or really do anything right now.
+	if (argc == 1)
+	{
+		printf("Please provide a target file for compilation.\n");
+		return 0;
+	}
 
-	struct string_ascii test = string_create_ascii("Hello World !\n");
+	char* compilation_target_file = argv[1];
 
-	int test_len = (int)strlen(test.str);
-
-	printf(test.str);
-	printf("Length = %d. test[%d] = %c\n", test_len, test_len, test.str[test_len]);
-
-	string_append_ascii(&test, "Adding another line !\n");
-	test_len = (int)strlen(test.str);
-	printf(test.str);
-	printf("New Length = %d. test[%d] = %c\n", test_len, test_len, test.str[test_len]);
+	int stage_error;
+	int compile_error = compile_file(compilation_target_file, "compile_test_out.exe", NULL, &stage_error);
 
 	system("pause");
-
-	// Crash !!
-
-	test.length = 40;
-	string_append_ascii(&test, "This won't work.\n");
-
 	return 0;
 }

@@ -105,7 +105,7 @@ struct lex_process
 	int current_expression_count;
 	byte* parentheses_buffer;
 
-	struct lex_process_functions* functions;
+	struct lex_process_functions functions;
 
 	// Private data the user of the lexer can transfer to the process.
 	void* private;

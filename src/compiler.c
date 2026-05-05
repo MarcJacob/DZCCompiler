@@ -25,7 +25,7 @@ int compile_file(const char* filename, const char* out_filename, int flags, int*
 	if (!compiler)
 	{
 		// Can't use exit macro since the compiler itself failed to be created.
-		fprintf(stderr, "Failed to create compile process !");
+		fprintf(stderr, "Failed to create compile process !\n");
 		return COMPILER_FATAL_ERROR;
 	}
 
