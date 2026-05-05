@@ -115,9 +115,9 @@ inline void vector_free_ptr(struct vector* vec)
 #define vector_get_ptr(vec, index, item_type)			\
 	((item_type*)vector_get_item_ptr(&vec, index))
 
-// Pushes new item by value to the vector.
-#define vector_push(vec, val, item_type)				\
-	{ item_type val_wrapper = (item_type)val;			\
+// Pushes new item by value to the vector. TODO: In Debug builds, assert that the pushed type is the correct size (and hopefully correct type).
+#define vector_push(vec, val, item_type)			\
+	{ item_type val_wrapper = val;					\
 	vector_push_item_ptr(&vec, &val_wrapper); }			
 
 #endif // VECTOR_INCLUDED

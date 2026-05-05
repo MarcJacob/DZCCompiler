@@ -12,7 +12,7 @@ struct compile_process* compile_process_create(const char* filename, const char*
 	FILE* out_file = NULL;
 	if (filename_out)
 	{
-		fopen_s(out_file, filename_out, "w");
+		fopen_s(&out_file, filename_out, "w");
 		if (!out_file) return NULL;
 	}
 
@@ -41,7 +41,11 @@ void compile_process_push_char(struct lex_process* process, char c);
 struct lex_process* lex_process_create(struct compile_process* compiler, void* private_data)
 {
 	struct lex_process* process = calloc(1, sizeof(struct lex_process));
-	if (!process) return NULL;
+	if (!process)
+	{
+		compiler_error(compiler, COMPILER_LEXER_ERROR, LEXER_FATAL_ERROR, "Failed to allocate Lexer process !\n");
+		return NULL;
+	}
 
 	process->compiler = compiler;
 	process->private = private_data;
@@ -57,7 +61,7 @@ struct lex_process* lex_process_create(struct compile_process* compiler, void* p
 
 	process->position.col = 1;
 	process->position.line = 1;
-	process->position.filename = compiler->input_file.file;
+	process->position.filename = compiler->input_file.file_abs_path;
 
 	return process;
 }

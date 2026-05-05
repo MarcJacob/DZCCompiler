@@ -57,6 +57,7 @@ struct token
 enum
 {
 	LEXER_ALL_OK,
+	LEXER_FATAL_ERROR,
 	LEXER_INPUT_ERROR,
 };
 
@@ -117,10 +118,22 @@ struct compile_process
 	struct compile_process_input_file input_file;
 
 	FILE* output_file;
+
+	// Output Status
+
+	// COMPILER_ERROR enum value, indicating an error in the compiler process itself or which stage of the process failed.
+	int compiler_error;
+
+	// If compiler_error indicates an error in a specific stage, this contains an error code relevant to that stage.
+	int stage_error;
 };
 
 struct compile_process* compile_process_create(const char* filename, const char* filename_out, int flags);
 void compile_process_destroy(struct compile_process* process);
+
+// Emits an error message in the standard error stream and populates the error codes in the compiler process structure.
+// The compilation process should obviously stop and return as soon as possible after this.
+void compiler_error(struct compile_process* compiler, int compiler_error_code, int stage_error, const char* msg, ...);
 
 struct lex_process* lex_process_create(struct compile_process* compiler, void* private_data);
 void lex_process_destroy(struct lex_process* lexer);
