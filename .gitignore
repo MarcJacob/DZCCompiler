@@ -1,6 +1,7 @@
 
-# Ignore VS stuff.
+# Ignore VS and Jetbrains stuff.
 /.vs/
+/.idea/
 
 # Ignore build products.
 

@@ -15,6 +15,11 @@ static char nextc(struct lex_process* lexer)
 	return lexer->functions->next_char(lexer);
 }
 
+struct token* token_make_number()
+{
+	return NULL;
+}
+
 struct token* read_next_token(struct lex_process* lexer)
 {
 	struct token* token = NULL;
@@ -22,6 +27,10 @@ struct token* read_next_token(struct lex_process* lexer)
 
 	switch (c)
 	{
+	CASE_NUMERIC:
+		token = token_make_number();
+		break;
+
 	case(EOF):
 		return NULL; // Lexical analysis finished, return no token.
 	}

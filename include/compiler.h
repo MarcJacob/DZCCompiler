@@ -13,6 +13,18 @@ struct token_position
 	const char* filename;
 };
 
+#define CASE_NUMERIC	\
+	case '0':			\
+	case '1':			\
+	case '2':			\
+	case '3':			\
+	case '4':			\
+	case '5':			\
+	case '6':			\
+	case '7':			\
+	case '8':			\
+	case '9'
+	
 enum
 {
 	TOKEN_TYPE_IDENTIFIER,

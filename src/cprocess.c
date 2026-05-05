@@ -34,9 +34,9 @@ void compile_process_destroy(struct compile_process* process)
 }
 
 // Default lexer functions.
-char compile_process_next_char(struct lex_process* process);
-char compile_process_peek_char(struct lex_process* process);
-void compile_process_push_char(struct lex_process* process, char c);
+char lex_process_next_char(struct lex_process* process);
+char lex_process_peek_char(struct lex_process* process);
+void lex_process_push_char(struct lex_process* process, char c);
 
 struct lex_process* lex_process_create(struct compile_process* compiler, void* private_data)
 {
@@ -55,9 +55,9 @@ struct lex_process* lex_process_create(struct compile_process* compiler, void* p
 	process->parentheses_buffer = calloc(256, 1);
 
 	// Init functions to defaults.
-	process->functions->next_char = compile_process_next_char;
-	process->functions->peek_char = compile_process_peek_char;
-	process->functions->push_char = compile_process_push_char;
+	process->functions->next_char = lex_process_next_char;
+	process->functions->peek_char = lex_process_peek_char;
+	process->functions->push_char = lex_process_push_char;
 
 	process->position.col = 1;
 	process->position.line = 1;
@@ -73,7 +73,7 @@ void lex_process_destroy(struct lex_process* lexer)
 	free(lexer);
 }
 
-char compile_process_next_char(struct lex_process* process)
+char lex_process_next_char(struct lex_process* process)
 {
 	struct compile_process* compiler = process->compiler;
 	compiler->position.col++;
@@ -89,7 +89,7 @@ char compile_process_next_char(struct lex_process* process)
 	return c;
 }
 
-char compile_process_peek_char(struct lex_process* process)
+char lex_process_peek_char(struct lex_process* process)
 {
 	struct compile_process* compiler = process->compiler;
 	compiler->position.col++;
@@ -101,7 +101,7 @@ char compile_process_peek_char(struct lex_process* process)
 	return c;
 }
 
-void compile_process_push_char(struct lex_process* process, char c)
+void lex_process_push_char(struct lex_process* process, char c)
 {
 	struct compile_process* compiler = process->compiler;
 	ungetc(c, compiler->input_file.file);
