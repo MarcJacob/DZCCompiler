@@ -1,5 +1,7 @@
 #include "compiler.h"
 
+#include "ascii_string.h"
+
 static char peekc(struct lex_process* lexer)
 {
 	return lexer->functions->peek_char(lexer);
@@ -15,9 +17,31 @@ static char nextc(struct lex_process* lexer)
 	return lexer->functions->next_char(lexer);
 }
 
-struct token* token_make_number()
+struct token* read_token_number(struct lex_process* lexer)
 {
-	return NULL;
+	// Read number string.
+	struct string_ascii number_str = string_create_ascii("");
+	char c = peekc(lexer);
+
+	for (; c >= '0' && c <= '9'; c = peekc(lexer))
+	{
+		string_append_ascii(&number_str, &c);
+	}
+
+	if (number_str.length == 0) return NULL; // Next character wasn't the start of a number.
+
+	// Parse string
+
+	long long number = atoll(number_str.str);
+
+	struct token* new_token = calloc(1, sizeof(struct token));
+	if (!new_token) abort();
+
+	new_token->type = TOKEN_TYPE_NUMBER;
+	new_token->value.llnum = number;
+	new_token->position = lexer->position;
+
+	return new_token;
 }
 
 struct token* read_next_token(struct lex_process* lexer)
@@ -28,7 +52,7 @@ struct token* read_next_token(struct lex_process* lexer)
 	switch (c)
 	{
 	CASE_NUMERIC:
-		token = token_make_number();
+		token = read_token_number(lexer);
 		break;
 
 	case(EOF):

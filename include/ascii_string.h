@@ -44,7 +44,7 @@ inline string_size string_get_aligned_size_ascii(string_size size)
 
 // Creates new ASCII string, initialized with optional null-terminated C string.
 // Note: Will never create a zero-size string, but at the minimum a "empty" string with a null-terminator character and one aligned block of memory.
-struct string_ascii string_create_ascii(const char* c_str)
+inline struct string_ascii string_create_ascii(const char* c_str)
 {
 	struct string_ascii new_string = { 0 };
 	
@@ -67,7 +67,7 @@ struct string_ascii string_create_ascii(const char* c_str)
 	return new_string;
 }
 
-void string_free_ascii(struct string_ascii* str)
+inline void string_free_ascii(struct string_ascii* str)
 {
 	if (str->str)
 	{
@@ -81,7 +81,7 @@ void string_free_ascii(struct string_ascii* str)
 // Resizes a string's memory, truncating its content if needed. "capacity" here means "number of useful characters this string can hold".
 // The actual new memory size of the string will always be 1 higher than requested to account for a null-termination character.
 // Note: If you mean to free the string, call string_free, as this will always result in a string with minimum memory size.
-void string_set_capacity_ascii(struct string_ascii* str, string_size capacity)
+inline void string_set_capacity_ascii(struct string_ascii* str, string_size capacity)
 {
 	STR_ASCII_SAFETY_CHECKS(str);
 
@@ -110,7 +110,7 @@ void string_set_capacity_ascii(struct string_ascii* str, string_size capacity)
 
 // Starts from the earliest found null-terminator and appends the passed in characters.
 // The string will be resized to fit the new characters if needed.
-void string_append_ascii(struct string_ascii* str, const char* c_str)
+inline void string_append_ascii(struct string_ascii* str, const char* c_str)
 {
 	STR_ASCII_SAFETY_CHECKS(str);
 
