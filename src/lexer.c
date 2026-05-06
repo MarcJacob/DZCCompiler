@@ -49,11 +49,12 @@ struct token* read_token_number(struct lex_process* lexer)
 {
 	// Read number string.
 	struct string_ascii number_str = string_create_ascii("");
-	char c = nextc(lexer);
+	char c = peekc(lexer);
 
-	for (; c >= '0' && c <= '9'; c = nextc(lexer))
+	for (; c >= '0' && c <= '9'; c = peekc(lexer))
 	{
 		string_append_char_ascii(&number_str, c);
+		nextc(lexer);
 	}
 
 	if (number_str.length == 0) return NULL; // Next character wasn't the start of a number.
@@ -246,6 +247,17 @@ struct token* read_token_operator(struct lex_process* lexer)
 			op_val = "*";
 		}
 		break;
+	case('/'): // Division or Divide-Assignment
+		if (c2 == '=')
+		{
+			c2 = nextc(lexer);
+			op_val = "/=";
+		}
+		else
+		{
+			op_val = "/";
+		}
+		break;
 	case('>'): // Greater, Greater equal or Bitshift Right ?
 		if (c2 == '=')
 		{
@@ -298,6 +310,17 @@ struct token* read_token_operator(struct lex_process* lexer)
 		else
 		{
 			op_val = "|";
+		}
+		break;
+	case('='): // Assignment or Equal operator ?
+		if (c2 == '=')
+		{
+			c2 = nextc(lexer);
+			op_val = "==";
+		}
+		else
+		{
+			op_val = "=";
 		}
 		break;
 	case('('): // Parenthesis scope begin
@@ -407,26 +430,6 @@ int lex(struct lex_process* lexer)
 		struct token* token = read_next_token(lexer);
 		if (!token) break;
 
-		// Print read token.
-		switch (token->type)
-		{
-		case TOKEN_TYPE_NUMBER:
-			printf("NUMBER\t%lld\n", token->value.llnum);
-			break;
-		case TOKEN_TYPE_STRING:
-			printf("STRING\t%s\n", token->value.strval.str);
-			break;
-		case TOKEN_TYPE_COMMENT:
-			printf("COMMENT\t%s\n", token->value.strval.str);
-			break;
-		case TOKEN_TYPE_NEWLINE:
-			printf("NEWLINE\t\n");
-			break;
-		case TOKEN_TYPE_OPERATOR:
-			printf("OP\t%s\n", token->value.strval.str);
-			break;
-		}
-
 		vector_push(lexer->token_vec, *token, struct token);
 
 	} while (1);
@@ -437,7 +440,37 @@ int lex(struct lex_process* lexer)
 		return lexer->compiler->stage_error;
 	}
 
-	printf("Lexical analysis completed. Token count = %d\n", lexer->token_vec.size);
+	// Print read tokens.
+	for (int token_index = 0; token_index < lexer->token_vec.size; token_index++)
+	{
+		struct token* lex_token = vector_get_ptr(lexer->token_vec, token_index, struct token);
+		switch (lex_token->type)
+		{
+		case TOKEN_TYPE_NUMBER:
+			printf("NUMBER\t%lld\n", lex_token->value.llnum);
+			break;
+		case TOKEN_TYPE_STRING:
+			printf("STRING\t%s\n", lex_token->value.strval.str);
+			break;
+		case TOKEN_TYPE_COMMENT:
+			printf("COMMENT\t%s\n", lex_token->value.strval.str);
+			break;
+		case TOKEN_TYPE_NEWLINE:
+			printf("NEWLINE\t\n");
+			break;
+		case TOKEN_TYPE_OPERATOR:
+			printf("OP\t%s\n", lex_token->value.strval.str);
+			break;
+		}
+
+		if (lex_token->whitespace_present)
+		{
+			printf("Whitespace\n");
+		}
+
+	}
+
+	printf("\nLexical analysis completed. Token count = %d\n", lexer->token_vec.size);
 
 	return LEXER_ALL_OK;
 }
