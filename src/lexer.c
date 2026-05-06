@@ -115,7 +115,7 @@ struct token* read_token_string(struct lex_process* lexer, char delim)
 	return new_token;
 }
 
-struct token* read_newline_token(struct lex_process* lexer)
+struct token* read_token_newline(struct lex_process* lexer)
 {
 	char c = peekc(lexer);
 	if (c != '\n')
@@ -138,15 +138,26 @@ struct token* read_newline_token(struct lex_process* lexer)
 	return new_token;
 }
 
-struct token* read_token_comment(struct lex_process* lexer, int multiline)
+struct token* read_token_comment(struct lex_process* lexer)
 {
-	// It is expected that the current position of the lexer is before the first character in the comment,
-	// meaning the comment start characters ("//" or "/*") have already been read.
+	char c = nextc(lexer); // Should be '/' per the execution condition of this function.
+	char c2 = peekc(lexer); // Should be '/' or '*' per the execution condition of this function.
 
-	char c = nextc(lexer);
-	char c2 = peekc(lexer);
+	if (c2 != '/' && c2 != '*')
+	{
+		// Not a comment token. Push the c character back in and return NULL.
+		pushc(lexer, c);
+		return NULL;
+	}
 
 	struct string_ascii comment_str = string_create_ascii("");
+
+	int multiline = c2 == '*';
+
+	// Otherwise, advance past c2 properly so it doesn't get added to the comment string itself.
+	nextc(lexer);
+	c = nextc(lexer);
+	c2 = peekc(lexer);
 
 	// Begin reading the comment. Read the characters two by two, c reading the file while c2 peeks it.
 	// This means that, effectively, c2 of iteration N becomes c of iteration N+1 and so on.
@@ -178,13 +189,146 @@ struct token* read_token_comment(struct lex_process* lexer, int multiline)
 	return new_token;
 }
 
+struct token* read_token_operator(struct lex_process* lexer)
+{
+	// pre-allocate token and fill in the fields we can fill in.
+	struct token* new_token = calloc(1, sizeof(struct token));
+	new_token->type = TOKEN_TYPE_OPERATOR;
+	
+	char c = nextc(lexer);
+	char c2 = peekc(lexer);
+
+	// Determine str value of operator token. If no value is assigned, we failed to find an operator token from the characters.
+	const char* op_val = NULL;
+	switch (c)
+	{
+	case('+'): // Add, Increment or Add-Assignment ?
+		if (c2 == '+')
+		{
+			c2 = nextc(lexer);
+			op_val = "++";
+		}
+		else if (c2 == '=')
+		{
+			c2 = nextc(lexer);
+			op_val = "+=";
+		}
+		else
+		{
+			op_val = "+";
+		}
+		break;
+	case('-'): // Subtract, Decrement or Subtract-Assignment ?
+		if (c2 == '-')
+		{
+			c2 = nextc(lexer);
+			op_val = "--";
+		}
+		else if (c2 == '=')
+		{
+			c2 = nextc(lexer);
+			op_val = "-=";
+		}
+		else
+		{
+			op_val = "-";
+		}
+		break;
+	case('*'): // Multiply, Multiply-Assignment, pointer dereferencing or pointer type ?
+		if (c2 == '=')
+		{
+			c2 = nextc(lexer);
+			op_val = "*=";
+		}
+		else
+		{
+			op_val = "*";
+		}
+		break;
+	case('>'): // Greater, Greater equal or Bitshift Right ?
+		if (c2 == '=')
+		{
+			c2 = nextc(lexer);
+			op_val = ">=";
+		}
+		else if (c2 == '>')
+		{
+			c2 = nextc(lexer);
+			op_val = ">>";
+		}
+		else
+		{
+			op_val = ">";
+		}
+		break;
+	case('<'): // Lower, Lower equal or Bitshift Left ?	
+		if (c2 == '=')
+		{
+			c2 = nextc(lexer);
+			op_val = "<=";
+		}
+		else if (c2 == '<')
+		{
+			c2 = nextc(lexer);
+			op_val = "<<";
+		}
+		else
+		{
+			op_val = "<";
+		}
+		break;
+	case('&'): // Bitwise AND or AND operator ?
+		if (c2 == '&')
+		{
+			c2 = nextc(lexer);
+			op_val = "&&";
+		}
+		else
+		{
+			op_val = "&";
+		}
+		break;
+	case('|'): // Bitwise OR or OR operator ?
+		if (c2 == '|')
+		{
+			c2 = nextc(lexer);
+			op_val = "||";
+		}
+		else
+		{
+			op_val = "|";
+		}
+		break;
+	}
+
+	// Found a value for the operator ! Store it as a string. TODO: New string allocated everytime even though we could just have the string act as a "view" in this case.
+	if (op_val != NULL)
+	{
+		new_token->value.strval = string_create_ascii(op_val);
+		new_token->position = lexer->position;
+
+		printf("Read Operator Token. Token value = %s\n", new_token->value.strval.str);
+		return new_token;
+	}
+
+	// Failed to read any operator in. Push c character back and return NULL.
+	pushc(lexer, c);
+	return NULL;
+}
+
 struct token* read_next_token(struct lex_process* lexer)
 {
 	struct token* token = NULL;
-	char c, c2; // c2 is useful for "simple" token types that have / start with two characters.
-READ_START:
+	char c;
 
+TOKEN_READ_START:
 	c = peekc(lexer);
+
+	// Handle the "Simple" tokens which are tokens that invariably start with the same one or two characters with no regard to context.
+	// They include Numbers, Strings, whitespaces (added to the latest token if any), comments, newlines and EOF.
+
+SIMPLE_TOKEN_READ_START:
+
 	switch (c)
 	{
 	CASE_NUMERIC:
@@ -198,50 +342,38 @@ READ_START:
 		break;
 	case ' ':
 		handle_whitespace(lexer);
-		goto READ_START;
+		goto TOKEN_READ_START; // Jump back to beginning of read to handle next character.
 	case '\n':
-		token = read_newline_token(lexer);
+		token = read_token_newline(lexer);
 		break;
 	case '/':
-		// Determine if this is the start of a comment.
-		// If next char is another slash or an asterisk, it is a comment.
-		// Otherwise, it is one of the complex token types.
-		
-		c = nextc(lexer);
-		c2 = peekc(lexer);
-
-		switch (c2)
-		{
-		case('/'):
-			c2 = nextc(lexer);
-			token = read_token_comment(lexer, 0);
-			break;
-		case('*'):
-			c2 = nextc(lexer);
-			token = read_token_comment(lexer, 1);
-			break;
-		default:
-			// Not a comment. Put c back and pretend nothing happened.
-			pushc(lexer, c);
-			break;
-		}
-
-		// If we failed to get a comment token from this character, go to the unhandled block.
-		if (!token) goto LEX_UNHANDLED_CHARACTER;
+		// Attempt to read a comment token. The function can fail in which case token will be NULL.
+		token = read_token_comment(lexer);
 		break;
 
 	case(EOF):
 		return NULL; // Lexical analysis finished, return no token.
-
-	default:
-	LEX_UNHANDLED_CHARACTER:
-		// Unhandled character, error out.
-		// TODO: Handle more complex tokens. 
-		lexer_error(lexer, LEXER_INPUT_ERROR, "Invalid character '%c' encountered by lexer.", c);
-		return NULL;
 	}
 
-	return token;
+	// Return "simple" token if found.
+	if (token)
+	{
+		return token;
+	}
+
+	// Otherwise, continue on to operator tokens.
+	// Operators are made up of one or two characters whose exact meaning is contextual, so all the lexer has to do is determine
+	// the correct string value for the token and let the parser do the work of figuring out the exact operator type.
+OPERATOR_TOKEN_READ_START:
+
+	// Return operator token if found.
+	token = read_token_operator(lexer);
+	if (token) return token;
+
+LEX_UNHANDLED_CHARACTER:
+	// Unhandled character, emit an error and return no token.
+	lexer_error(lexer, LEXER_INPUT_ERROR, "Invalid character '%c' encountered by lexer; Next token type cannot be inferred.", c);
+	return NULL;
 }
 
 int lex(struct lex_process* lexer)
