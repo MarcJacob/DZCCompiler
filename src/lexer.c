@@ -3,6 +3,19 @@
 #include "compiler.h"
 #include "ascii_string.h"
 
+#define CASE_NUMERIC	\
+	case '0':			\
+	case '1':			\
+	case '2':			\
+	case '3':			\
+	case '4':			\
+	case '5':			\
+	case '6':			\
+	case '7':			\
+	case '8':			\
+	case '9'
+	
+
 static char peekc(struct lex_process* lexer)
 {
 	return lexer->functions.peek_char(lexer);

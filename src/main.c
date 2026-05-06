@@ -42,7 +42,6 @@ PROGRAM_START:
 		goto PROGRAM_START;
 	}
 
-PROGRAM_END:
 	system("pause");
 	return 0;
 }

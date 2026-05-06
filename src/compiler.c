@@ -58,6 +58,10 @@ int compile_file(const char* filename, const char* out_filename, int flags, int*
 	lexer = NULL;
 
 	// Perform parsing
+	if (parse(compiler) != PARSER_ALL_OK)
+	{
+		COMPILER_EXIT_FAILURE();
+	}
 
 	// Perform code generation
 	

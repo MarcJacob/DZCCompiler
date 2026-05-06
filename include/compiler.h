@@ -7,25 +7,16 @@
 #include "vector.h"
 #include "ascii_string.h"
 
-struct token_position
+// ----------- GENERAL SYMBOLS -------------
+// Symbol declarations that are shared across the compiler code.
+
+struct file_position
 {
 	int line;
 	int col;
 	const char* filename;
 };
 
-#define CASE_NUMERIC	\
-	case '0':			\
-	case '1':			\
-	case '2':			\
-	case '3':			\
-	case '4':			\
-	case '5':			\
-	case '6':			\
-	case '7':			\
-	case '8':			\
-	case '9'
-	
 enum
 {
 	TOKEN_TYPE_IDENTIFIER,
@@ -49,7 +40,6 @@ union token_value
 	struct string_ascii strval;
 	void* any;
 	ui64 llnum;
-	ui64 lnum;
 	ui32 inum;
 	ui16 keyword_index; // Index into keyword table.
 	char cval;
@@ -59,7 +49,7 @@ union token_value
 struct token
 {
 	union token_value value;
-	struct token_position position;
+	struct file_position position;
 
 	// Pointer to start of closest opening parenthesis or brackets.
 	const char* enclosure;
@@ -72,14 +62,6 @@ struct token
 
 	// Is at least one white space present between this token and the next one ?
 	byte whitespace_present;
-};
-
-// Return values for the lex function.
-enum
-{
-	LEXER_ALL_OK,
-	LEXER_FATAL_ERROR,
-	LEXER_INPUT_ERROR,
 };
 
 // Global lookup table to determine whether a string is a keyword, and its index.
@@ -127,6 +109,14 @@ static const char* KEYWORDS_STR_TABLE[] =
 // Returns the keyword index of the passed in keyword string. Returns -1 if keyword wasn't found.
 int get_keyword_index(const char* keyword);
 
+// ------- COMPILER --------------
+
+struct compile_process_input_file
+{
+	FILE* file;
+	const char* file_abs_path;
+};
+
 // Return values for the compile_file function.
 enum
 {
@@ -136,41 +126,6 @@ enum
 	COMPILER_LEXER_ERROR, // Failed at the Lexical Analysis stage.
 };
 
-struct lex_process;
-
-typedef char (*LEX_PROCESS_NEXT_CHAR_FUNC)(struct lex_process* process);
-typedef char (*LEX_PROCESS_PEEK_CHAR_FUNC)(struct lex_process* process);
-typedef void (*LEX_PROCESS_PUSH_CHAR_FUNC)(struct lex_process* process, char c);
-
-struct lex_process_functions
-{
-	LEX_PROCESS_NEXT_CHAR_FUNC next_char;
-	LEX_PROCESS_PEEK_CHAR_FUNC peek_char;
-	LEX_PROCESS_PUSH_CHAR_FUNC push_char;
-};
-
-struct lex_process
-{
-	struct token_position position;
-	struct vector token_vec;
-	struct compile_process* compiler;
-
-	// How many brackets / parenthesis are open at the current position.
-	int current_expression_count;
-	byte* parentheses_buffer;
-
-	struct lex_process_functions functions;
-
-	// Private data the user of the lexer can transfer to the process.
-	void* private;
-};
-
-struct compile_process_input_file
-{
-	FILE* file;
-	const char* file_abs_path;
-};
-
 // Ongoing compilation process.
 struct compile_process
 {
@@ -178,7 +133,7 @@ struct compile_process
 	int flags;
 
 	// Current position of the compilation process.
-	struct token_position position;
+	struct file_position position;
 
 	// Input file structure containing the FILE handle and its absolute path.
 	struct compile_process_input_file input_file;
@@ -187,7 +142,11 @@ struct compile_process
 
 	// Intermediate values
 
+	// Return values for the lex function.
 	struct vector token_vec; // Contains all tokens that should be taken into account in the parsing stage.
+
+	struct vector node_vec;
+	struct vector node_tree_vec;
 
 	// Output Status
 
@@ -197,6 +156,7 @@ struct compile_process
 	// If compiler_error indicates an error in a specific stage, this contains an error code relevant to that stage.
 	int stage_error;
 };
+
 
 struct compile_process* compile_process_create(const char* filename, const char* filename_out, int flags);
 void compile_process_destroy(struct compile_process* process);
@@ -214,8 +174,7 @@ void compiler_error(struct compile_process* compiler, int compiler_error_code, i
 // Returns whether the compiler is in an error state. When true the compiler should seek to exit as fast as possible.
 inline int compiler_has_error(struct compile_process* compiler) { return compiler->compiler_error > 0; }
 
-struct lex_process* lex_process_create(struct compile_process* compiler, void* private_data);
-void lex_process_destroy(struct lex_process* lexer);
+// Main compilation function & stages.
 
 // Start compilation for a specific file. Returns one of the COMPILER_* enumeration values.
 // If failure happened inside one of the stages, will return a general enum value indicating which stage,
@@ -223,5 +182,120 @@ void lex_process_destroy(struct lex_process* lexer);
 int compile_file(const char* filename, const char* out_filename, int flags, int* out_stage_error);
 
 int lex(struct lex_process* lexer);
+int parse(struct compile_process* compiler);
+
+// ----------- LEXER -------------
+
+struct lex_process;
+
+typedef char (*LEX_PROCESS_NEXT_CHAR_FUNC)(struct lex_process* process);
+typedef char (*LEX_PROCESS_PEEK_CHAR_FUNC)(struct lex_process* process);
+typedef void (*LEX_PROCESS_PUSH_CHAR_FUNC)(struct lex_process* process, char c);
+
+struct lex_process_functions
+{
+	LEX_PROCESS_NEXT_CHAR_FUNC next_char;
+	LEX_PROCESS_PEEK_CHAR_FUNC peek_char;
+	LEX_PROCESS_PUSH_CHAR_FUNC push_char;
+};
+
+// Lexer stage error codes.
+enum
+{
+	LEXER_ALL_OK,
+	LEXER_FATAL_ERROR,
+	LEXER_INPUT_ERROR,
+};
+
+struct lex_process
+{
+	struct file_position position;
+	struct vector token_vec;
+	struct compile_process* compiler;
+
+	// How many brackets / parenthesis are open at the current position.
+	int current_expression_count;
+	byte* parentheses_buffer;
+
+	struct lex_process_functions functions;
+
+	// Private data the user of the lexer can transfer to the process.
+	void* private;
+};
+
+struct lex_process* lex_process_create(struct compile_process* compiler, void* private_data);
+void lex_process_destroy(struct lex_process* lexer);
+
+// --------- PARSER -----------
+
+// Parser stage error codes.
+enum
+{
+	PARSER_ALL_OK,
+	PARSER_GENERAL_ERROR,
+};
+
+// Parser node types.
+enum
+{
+	NODE_TYPE_EXPRESSION,
+	NODE_TYPE_EXPRESSION_PARENTHESES,
+	NODE_TYPE_NUMBER,
+	NODE_TYPE_IDENTIFIER,
+	NODE_TYPE_STRING,
+	NODE_TYPE_VARIABLE,
+	NODE_TYPE_VARIABLE_LIST,
+	NODE_TYPE_FUNCTION,
+	NODE_TYPE_BODY,
+	NODE_TYPE_STATEMENT_RETURN,
+	NODE_TYPE_STATEMENT_IF,
+	NODE_TYPE_STATEMENT_ELSE,
+	NODE_TYPE_STATEMENT_WHILE,
+	NODE_TYPE_STATEMENT_DO_WHILE,
+	NODE_TYPE_STATEMENT_FOR,
+	NODE_TYPE_STATEMENT_BREAK,
+	NODE_TYPE_STATEMENT_CONTINUE,
+	NODE_TYPE_STATEMENT_SWITCH,
+	NODE_TYPE_STATEMENT_CASE,
+	NODE_TYPE_STATEMENT_DEFAULT,
+	NODE_TYPE_STATEMENT_GOTO,
+
+
+	NODE_TYPE_STATEMENT_UNARY,
+	NODE_TYPE_STATEMENT_TERNARY,
+	NODE_TYPE_STATEMENT_LABEL,
+	NODE_TYPE_STATEMENT_STRUCT,
+	NODE_TYPE_STATEMENT_UNION,
+	NODE_TYPE_STATEMENT_BRACKETS,
+	NODE_TYPE_STATEMENT_CAST,
+	NODE_TYPE_STATEMENT_BLANK,
+};
+
+struct parsing_node
+{
+	int type;
+	int flags;
+
+	struct file_position position;
+
+	struct
+	{
+		// Pointer to body node.
+		struct parsing_node* owner;
+
+		// Pointer to function node this node is in.
+		struct parsing_node* function;
+	} context;
+
+	union
+	{
+		char cval;
+		struct string_ascii sval;
+		ui32 inum;
+		ui64 llnum;
+	} value;
+};
+
+struct parsing_node* node_peek(struct vector* vec);
 
 #endif // COMPILER_INCLUDED

@@ -103,6 +103,13 @@ inline struct vector vector_create_copy(struct vector* source_vec)
 	return new_vec;
 }
 
+inline void* vector_back_ptr(struct vector* vec)
+{
+	if (vec->size == 0) return NULL;
+
+	return vec->mem + vec->size - 1;
+}
+
 // Creates a new vector and returns it by value.
 #define vector_create(item_type, start_capacity)	\
 	(vector_create_val(sizeof(item_type), start_capacity))
