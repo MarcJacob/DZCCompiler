@@ -305,7 +305,16 @@ struct parsing_node
 		char cval;
 		struct string_ascii sval;
 		ui32 inum;
-		ui64 llnum;
+		ui64 llnum;	
+		
+		struct parsing_node_exp_value
+		{
+			struct parsing_node* left;
+			struct parsing_node* right;
+
+			const char* op_str;
+		} exp;
+
 	} value;
 };
 

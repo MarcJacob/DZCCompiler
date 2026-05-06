@@ -61,7 +61,7 @@ void handle_whitespace(struct lex_process* lexer)
 	struct token* last_token = NULL;
 	if (lexer->token_vec.size > 0)
 	{
-		last_token = vector_get_ptr(lexer->token_vec, lexer->token_vec.size - 1, struct token);
+		last_token = vector_get_ptr(lexer->token_vec, lexer->token_vec.size - 1);
 	}
 
 	if (last_token)
@@ -643,7 +643,7 @@ int lex(struct lex_process* lexer)
 	// Print read tokens.
 	for (int token_index = 0; token_index < lexer->token_vec.size; token_index++)
 	{
-		struct token* lex_token = vector_get_ptr(lexer->token_vec, token_index, struct token);
+		struct token* lex_token = vector_get_ptr(lexer->token_vec, token_index);
 		switch (lex_token->type)
 		{
 		case TOKEN_TYPE_NUMBER:

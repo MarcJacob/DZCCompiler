@@ -141,11 +141,17 @@ static int parse_single_token_node(struct tree_parsing_context* tree, struct par
 // This is a "builder" function, it does NOT push the node to any vector or tree.
 struct parsing_node* build_expression_node(struct parsing_node* left_operand, struct parsing_node* right_operand, const char* op_str)
 {
+	assert(left_operand != NULL);
+	assert(right_operand != NULL);
+
 	struct parsing_node* exp_node = calloc(1, sizeof(struct parsing_node));
 	assert(exp_node != NULL);
 
 	exp_node->type = NODE_TYPE_EXPRESSION;
-	// TODO: Expression Node data...
+
+	exp_node->value.exp.left = left_operand;
+	exp_node->value.exp.right = right_operand;
+	exp_node->value.exp.op_str = op_str;
 
 	return exp_node;
 }
@@ -179,11 +185,16 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	// Now parse next node and attempt to use it as right operand.
 	struct parser_token* right_operand_start_token = token->next;
 	const char* op_str = token->token->value.strval.str;
-	parse_expressionable_for_op(tree, &right_operand_start_token, op_str);
+	if (parse_expressionable_for_op(tree, &right_operand_start_token, op_str) != 0)
+	{
+		// Right token was not an expressionable.
+		free(left_operand);
+		return -1;
+	}
 
+	// Extract parsed node from the node vector.
 	struct parsing_node* right_operand = calloc(1, sizeof(struct parsing_node));
 	assert(right_operand != NULL);
-
 	node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, right_operand);
 	right_operand->flags |= NODE_FLAG_INSIDE_EXPRESSION;
 
@@ -250,6 +261,7 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 
 // Parses tokens starting from the provided list item into a node tree, and returns the root node of that tree.
 // Advances the provided tree_start_token to after all the tokens used by the tree parsed by this run of the function.
+// Returns -1 on error, 0 on successful parse, 1 if token list is empty.
 static int parse_next_tree(struct compile_process* compiler, struct parser_token** tree_start_token)
 {
 	struct history* parsing_history = history_begin(0);
@@ -262,7 +274,7 @@ static int parse_next_tree(struct compile_process* compiler, struct parser_token
 	struct parser_token* parser_token = *tree_start_token;
 	if (parser_token == NULL)
 	{
-		return 1;
+		return 1; // No more tokens to parse.
 	}
 
 	while (parser_token)
@@ -283,6 +295,7 @@ static int parse_next_tree(struct compile_process* compiler, struct parser_token
 	// Finished parsing tree. Set the pointer to point to the first token that, in theory, should start the next tree.
 	*tree_start_token = parser_token;
 
+	free(parsing_history);
 	return 0;
 }
 
@@ -303,13 +316,28 @@ int parse(struct compile_process* compiler)
 
 	// Loop over the entire list of parseable tokens until the end is reached or parsing fails.
 	// token_list_item pointer will be "advanced" to the first token of the next potential tree.
-	while (parse_next_tree(compiler, &token_list_item) == 0)
+	int parse_res = 0;
+	while ((parse_res = parse_next_tree(compiler, &token_list_item)) == 0)
 	{
 		node = node_peek(&compiler->node_vec);
 		vector_push(compiler->node_tree_vec, node);
 	}
 
+	// Handle error. Emit a generic error if none are currently emitted to the compiler but parsing failed.
+	if (parse_res != 1)
+	{
+		if (compiler_has_error(compiler))
+		{
+			return compiler->stage_error;
+		}
+
+		compiler_error(compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Unknown Parser error.");
+		return PARSER_GENERAL_ERROR;
+	}
+	
+
 	// Report on all parsed tokens.
+	// TODO: Make a print function for nodes so that it can be recursively re-used.
 	printf("Parsed nodes:\n\n");
 	for (int i = 0; i < compiler->node_vec.size; i++)
 	{
@@ -317,10 +345,12 @@ int parse(struct compile_process* compiler)
 		switch (node->type)
 		{
 		case NODE_TYPE_EXPRESSION:
-			printf("<EXPRESSION, TODO>\n");
+			printf("<EXPRESSION, %s>\n", node->value.exp.op_str);
+			printf("\t<NUMBER, %lld>\n", node->value.exp.left->value.llnum);
+			printf("\t<NUMBER, %lld>\n", node->value.exp.right->value.llnum);
 			break;
 		case NODE_TYPE_NUMBER:
-			printf("<NUMBER, TODO>\n");
+			printf("\t<NUMBER, %lld>\n", node->value.llnum);
 			break;
 		default:
 			printf("<UNKNOWN>\n");
