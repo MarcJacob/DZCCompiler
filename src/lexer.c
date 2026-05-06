@@ -57,6 +57,51 @@ struct token* read_token_number(struct lex_process* lexer)
 	new_token->value.llnum = number;
 	new_token->position = lexer->position;
 
+	printf("Read number token. Token value = %d\n", new_token->value.llnum);
+	return new_token;
+}
+
+struct token* read_token_string(struct lex_process* lexer, char delim)
+{
+	// Read character string starting with a "
+	struct string_ascii string = string_create_ascii("");
+
+	if (nextc(lexer) != delim)
+	{
+		lexer->compiler->position = lexer->position;
+		compiler_error(lexer->compiler, COMPILER_LEXER_ERROR, LEXER_INPUT_ERROR, "Attempted to read String token with wrong start character.");
+		return NULL;
+	}
+
+	char c = nextc(lexer);
+	for (; c != delim && c != EOF; c = nextc(lexer))
+	{
+		if (c == '\\')
+		{
+			// TODO: Handle escape.
+			continue;
+		}
+
+		string_append_char_ascii(&string, c);
+
+		// Peek and pre-handle error characters:
+		c = peekc(lexer);
+		if (c == EOF)
+		{
+			lexer->compiler->position = lexer->position;
+			compiler_error(lexer->compiler, COMPILER_LEXER_ERROR, LEXER_INPUT_ERROR, "Encountered EOF when reading String token.");
+			return NULL;
+		}	
+	}
+
+	struct token* new_token = calloc(1, sizeof(struct token));
+	if (!new_token) abort();
+
+	new_token->type = TOKEN_TYPE_STRING;
+	new_token->value.strval = string;
+	new_token->position = lexer->position;
+
+	printf("Read string token. Token value = %c%s%c\n", delim, new_token->value.strval.str, delim);
 	return new_token;
 }
 
@@ -71,22 +116,31 @@ READ_START:
 	{
 	CASE_NUMERIC:
 		token = read_token_number(lexer);
-		printf("Read number token. Token value = %d\n", token->value.llnum);
+		break;
+
+	case '"':
+		token = read_token_string(lexer, '"');
+		break;
+	case '\'':
+		token = read_token_string(lexer, '\'');
 		break;
 
 	case ' ':
 		handle_whitespace(lexer);
 		goto READ_START;
-		break;
+
+	case '\n':
+		// Ignore line break.
+		nextc(lexer);
+		goto READ_START;
 
 	case(EOF):
 		return NULL; // Lexical analysis finished, return no token.
-	}
-
-	if (token == NULL)
-	{
+	default:
+		// Unhandled character, error out.
 		lexer->compiler->position = lexer->position;
 		compiler_error(lexer->compiler, COMPILER_LEXER_ERROR, LEXER_INPUT_ERROR, "Invalid character '%c' encountered by lexer.\n", c);
+		return NULL;
 	}
 
 	return token;
@@ -106,6 +160,12 @@ int lex(struct lex_process* lexer)
 		vector_push(lexer->token_vec, *token, struct token);
 
 	} while (1);
+
+	// "Catch" errors that happened while reading tokens.
+	if (lexer->compiler->compiler_error != COMPILER_FILE_COMPILED_OK)
+	{
+		return lexer->compiler->stage_error;
+	}
 
 	printf("Lexical analysis completed. Token count = %d\n", lexer->token_vec.size);
 

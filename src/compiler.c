@@ -11,7 +11,7 @@ void compiler_error(struct compile_process* compiler, int compiler_error_code, i
 	vfprintf(stderr, msg, args);
 	va_end(args);
 
-	fprintf(stderr, " on line %i, col %i in file %s\n", compiler->position.line, compiler->position.col, compiler->position.filename);
+	fprintf(stderr, "\n\ton line %i, col %i in file %s\n", compiler->position.line, compiler->position.col, compiler->position.filename);
 	
 	compiler->compiler_error = compiler_error_code;
 	compiler->stage_error = stage_error;

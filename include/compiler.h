@@ -5,6 +5,7 @@
 
 #include "core_types.h"
 #include "vector.h"
+#include "ascii_string.h"
 
 struct token_position
 {
@@ -41,7 +42,7 @@ enum
 union token_value
 {
 	char cval;
-	const char* strval;
+	struct string_ascii strval;
 	ui32 inum;
 	ui64 lnum;
 	ui64 llnum;
