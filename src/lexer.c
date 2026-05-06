@@ -61,6 +61,8 @@ void handle_whitespace(struct lex_process* lexer)
 
 struct token* read_token_number(struct lex_process* lexer)
 {
+	// TODO: Handle Hexadecimal and Float / Double literals.
+
 	// Read number string.
 	struct string_ascii number_str = string_create_ascii("");
 	char c = peekc(lexer);
