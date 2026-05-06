@@ -7,9 +7,14 @@ void compiler_error(struct compile_process* compiler, int compiler_error_code, i
 {
 	va_list args;
 	va_start(args, msg);
-
-	vfprintf(stderr, msg, args);
+	compiler_error_v(compiler, compiler_error_code, stage_error, msg, args);
 	va_end(args);
+}
+
+void compiler_error_v(struct compile_process* compiler, int compiler_error_code, int stage_error,
+	const char* msg, va_list args)
+{
+	vfprintf(stderr, msg, args);
 
 	fprintf(stderr, "\n\ton line %i, col %i in file %s\n", compiler->position.line, compiler->position.col, compiler->position.filename);
 	

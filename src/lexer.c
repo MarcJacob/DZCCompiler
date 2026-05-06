@@ -1,5 +1,6 @@
-#include "compiler.h"
+#include <stdarg.h>
 
+#include "compiler.h"
 #include "ascii_string.h"
 
 static char peekc(struct lex_process* lexer)
@@ -15,6 +16,17 @@ static void pushc(struct lex_process* lexer, char c)
 static char nextc(struct lex_process* lexer)
 {
 	return lexer->functions.next_char(lexer);
+}
+
+static inline void lexer_error(struct lex_process* lexer, int lexer_error, const char* msg, ...)
+{
+	va_list args;
+	va_start(msg, args);
+
+	lexer->compiler->position = lexer->position;
+	compiler_error_v(lexer->compiler, COMPILER_LEXER_ERROR, lexer_error, msg, args);
+
+	va_end(args);
 }
 
 void handle_whitespace(struct lex_process* lexer)
@@ -57,7 +69,7 @@ struct token* read_token_number(struct lex_process* lexer)
 	new_token->value.llnum = number;
 	new_token->position = lexer->position;
 
-	printf("Read number token. Token value = %d\n", new_token->value.llnum);
+	printf("Read number token. Token value = %I64d\n", new_token->value.llnum);
 	return new_token;
 }
 
@@ -68,8 +80,7 @@ struct token* read_token_string(struct lex_process* lexer, char delim)
 
 	if (nextc(lexer) != delim)
 	{
-		lexer->compiler->position = lexer->position;
-		compiler_error(lexer->compiler, COMPILER_LEXER_ERROR, LEXER_INPUT_ERROR, "Attempted to read String token with wrong start character.");
+		lexer_error(lexer, LEXER_INPUT_ERROR, "Attempted to read String token with wrong start character.");
 		return NULL;
 	}
 
@@ -88,8 +99,7 @@ struct token* read_token_string(struct lex_process* lexer, char delim)
 		c = peekc(lexer);
 		if (c == EOF)
 		{
-			lexer->compiler->position = lexer->position;
-			compiler_error(lexer->compiler, COMPILER_LEXER_ERROR, LEXER_INPUT_ERROR, "Encountered EOF when reading String token.");
+			lexer_error(lexer, LEXER_INPUT_ERROR, "Encountered EOF when reading String token.");
 			return NULL;
 		}	
 	}
@@ -138,8 +148,7 @@ READ_START:
 		return NULL; // Lexical analysis finished, return no token.
 	default:
 		// Unhandled character, error out.
-		lexer->compiler->position = lexer->position;
-		compiler_error(lexer->compiler, COMPILER_LEXER_ERROR, LEXER_INPUT_ERROR, "Invalid character '%c' encountered by lexer.\n", c);
+		lexer_error(lexer, LEXER_INPUT_ERROR, "Invalid character '%c' encountered by lexer.\n", c);
 		return NULL;
 	}
 
@@ -152,6 +161,7 @@ int lex(struct lex_process* lexer)
 	lexer->parentheses_buffer = NULL;
 	lexer->position.filename = lexer->compiler->input_file.file_abs_path;
 
+	// Read as many tokens as possible.
 	do
 	{
 		struct token* token = read_next_token(lexer);
@@ -161,8 +171,8 @@ int lex(struct lex_process* lexer)
 
 	} while (1);
 
-	// "Catch" errors that happened while reading tokens.
-	if (lexer->compiler->compiler_error != COMPILER_FILE_COMPILED_OK)
+	// Exit if any error happened during the token reading process.
+	if (compiler_has_error(lexer->compiler))
 	{
 		return lexer->compiler->stage_error;
 	}

@@ -145,8 +145,17 @@ struct compile_process* compile_process_create(const char* filename, const char*
 void compile_process_destroy(struct compile_process* process);
 
 // Emits an error message in the standard error stream and populates the error codes in the compiler process structure.
-// The compilation process should obviously stop and return as soon as possible after this.
-void compiler_error(struct compile_process* compiler, int compiler_error_code, int stage_error, const char* msg, ...);
+// The compilation process should stop and return as soon as possible after this.
+void compiler_error_v(struct compile_process* compiler, int compiler_error_code, int stage_error,
+	const char* msg, va_list args);
+
+// Emits an error message in the standard error stream and populates the error codes in the compiler process structure.
+// The compilation process should stop and return as soon as possible after this.
+void compiler_error(struct compile_process* compiler, int compiler_error_code, int stage_error,
+	const char* msg, ...);
+
+// Returns whether the compiler is in an error state. When true the compiler should seek to exit as fast as possible.
+inline int compiler_has_error(struct compile_process* compiler) { return compiler->compiler_error > 0; }
 
 struct lex_process* lex_process_create(struct compile_process* compiler, void* private_data);
 void lex_process_destroy(struct lex_process* lexer);
