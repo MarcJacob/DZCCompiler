@@ -93,10 +93,12 @@ static const char* KEYWORDS_STR_TABLE[] =
 	"float",
 	"double",
 
-	// Variable modifiers
+	// Identifier modifiers
 	"const",
 	"unsigned",
 	"volatile",
+	"static",
+	"extern",
 
 	// Special operations
 	"return",
@@ -115,6 +117,11 @@ static const char* KEYWORDS_STR_TABLE[] =
 	"typedef",
 	"struct",
 	"enum",
+	"union",
+
+	// Misc
+	"case",
+	"goto",
 };
 
 // Returns the keyword index of the passed in keyword string. Returns -1 if keyword wasn't found.
