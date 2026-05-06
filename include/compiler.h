@@ -46,12 +46,13 @@ enum
 // Value associated to a token, can be one of many types. See the token structure.
 union token_value
 {
-	char cval;
 	struct string_ascii strval;
-	ui32 inum;
-	ui64 lnum;
-	ui64 llnum;
 	void* any;
+	ui64 llnum;
+	ui64 lnum;
+	ui32 inum;
+	ui16 keyword_index; // Index into keyword table.
+	char cval;
 };
 
 // Result of lexical analysis, associating a type, a value and secondary properties.
@@ -80,6 +81,44 @@ enum
 	LEXER_FATAL_ERROR,
 	LEXER_INPUT_ERROR,
 };
+
+// Global lookup table to determine whether a string is a keyword, and its index.
+static const char* KEYWORDS_STR_TABLE[] =
+{
+	// Primitive types
+	"char"
+	"short",
+	"int",
+	"long"
+	"float",
+	"double",
+
+	// Variable modifiers
+	"const",
+	"unsigned",
+	"volatile",
+
+	// Special operations
+	"return",
+	"break",
+	"continue",
+	"sizeof",
+
+	// Scope modifiers (loops and conditionals)
+	"if",
+	"else",
+	"do",
+	"while",
+	"for",
+
+	// Type declarations
+	"typedef",
+	"struct",
+	"enum",
+};
+
+// Returns the keyword index of the passed in keyword string. Returns -1 if keyword wasn't found.
+int get_keyword_index(const char* keyword);
 
 // Return values for the compile_file function.
 enum

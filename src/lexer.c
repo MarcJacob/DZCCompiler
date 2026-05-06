@@ -18,6 +18,20 @@ static char nextc(struct lex_process* lexer)
 	return lexer->functions.next_char(lexer);
 }
 
+int get_keyword_index(const char* keyword)
+{
+	const int keywords_table_size = sizeof(KEYWORDS_STR_TABLE) / sizeof(char*);
+	for (int keyword_index = 0; keyword_index < keywords_table_size; keyword_index++)
+	{
+		if (strcmp(keyword, KEYWORDS_STR_TABLE[keyword_index]) == 0)
+		{
+			return keyword_index;
+		}
+	}
+
+	return -1;
+}
+
 static inline void lexer_error(struct lex_process* lexer, int lexer_error, const char* msg, ...)
 {
 	va_list args;
@@ -401,6 +415,72 @@ struct token* read_token_symbol(struct lex_process* lexer)
 	return NULL;
 }
 
+int is_word_char(char c, int can_be_number)
+{
+	return c == '_' // Underscore
+		|| (c >= 'a' && c <= 'z') // Lower case letter
+		|| (c >= 'A' && c <= 'Z') // Upper case letter
+		|| (can_be_number && c >= '0' && c <= '9');
+}
+
+// Reads a "word" which starts with a letter or underscore and ends with a alphanumeric or underscore.
+// Words are used for keywords and identifiers. Returns a new string containing the word and advances the lexer to after the word.
+// Note: if returned string is empty, the current lexer position wasn't a valid start for a word.
+struct string_ascii read_word(struct lex_process* lexer)
+{
+	struct string_ascii word_str = string_create_ascii("");
+
+	char c = peekc(lexer);
+
+	// Check validity of first char as a word starter.
+	if (!is_word_char(c, 0))
+	{
+		return word_str;
+	}
+
+	// Read and append all following characters so long as they are valid word characters.
+	for (; is_word_char(c, 1); c = peekc(lexer))
+	{
+		string_append_char_ascii(&word_str, c);
+		nextc(lexer);
+	}
+
+	return word_str;
+}
+
+struct token* read_token_keyword(struct lex_process* lexer, struct string_ascii* word)
+{
+	struct token* new_token = calloc(1, sizeof(struct token));
+	if (!new_token) abort();
+
+	int keyword_index = get_keyword_index(word->str);
+	if (keyword_index >= 0)
+	{
+		new_token->type = TOKEN_TYPE_KEYWORD;
+		new_token->value.keyword_index = keyword_index;
+		new_token->position = lexer->position;
+
+		return new_token;
+	}
+
+	// Word didn't correspond to a keyword. Free the token and return NULL.
+	free(new_token);
+	return NULL;
+}
+
+struct token* read_token_identifier(struct lex_process* lexer, struct string_ascii* word)
+{
+	// We know the word is non-empty and only contains characters allowed in words, so anything goes.
+	struct token* new_token = calloc(1, sizeof(struct token));
+	if (!new_token) abort();
+
+	new_token->type = TOKEN_TYPE_IDENTIFIER;
+	new_token->value.strval = *word;
+	new_token->position = lexer->position;
+
+	return new_token;
+}
+
 struct token* read_next_token(struct lex_process* lexer)
 {
 	struct token* token = NULL;
@@ -458,6 +538,27 @@ TOKEN_READ_START:
 	token = read_token_symbol(lexer);
 	if (token) return token;
 
+	// Word reading: read a word in, then try to read it first as a keyword, then an identifier.
+	struct string_ascii word = read_word(lexer);
+	if (word.length > 0)
+	{
+		token = read_token_keyword(lexer, &word);
+		if (token)
+		{
+			// Keyword token was read. Keywords keep a keyword index, not a string, so the word string can be freed.
+			string_free_ascii(&word);
+		}
+		// If reading a keyword failed, read the word as an identifier.
+		else token = read_token_identifier(lexer, &word);
+		// Reading an identifier cannot fail provided the word is non-empty, so token will always have a value here.
+		return token;
+	}
+	else
+	{
+		// No word was found - free the string.
+		string_free_ascii(&word);
+	}
+
 	// Unhandled character, emit an error and return no token.
 	lexer_error(lexer, LEXER_INPUT_ERROR, "Invalid character '%c' encountered by lexer. Next token type cannot be inferred.", c);
 	return NULL;
@@ -476,7 +577,7 @@ int lex(struct lex_process* lexer)
 		if (!token) break;
 
 		vector_push(lexer->token_vec, *token, struct token);
-
+		free(token); // Free token pointer. It is not needed anymore since we've "moved" it into the vector token.
 	} while (1);
 
 	// Exit if any error happened during the token reading process.
@@ -508,6 +609,12 @@ int lex(struct lex_process* lexer)
 			break;
 		case TOKEN_TYPE_SYMBOL:
 			printf("SYMBOL\t%s\n", lex_token->value.strval.str);
+			break;
+		case TOKEN_TYPE_KEYWORD:
+			printf("KEYWORD\t%d ('%s')\n", lex_token->value.keyword_index, KEYWORDS_STR_TABLE[lex_token->value.keyword_index]);
+			break;
+		case TOKEN_TYPE_IDENTIFIER:
+			printf("IDENT\t%s\n", lex_token->value.strval.str);
 			break;
 		}
 
