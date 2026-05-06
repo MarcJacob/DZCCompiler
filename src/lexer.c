@@ -21,7 +21,7 @@ static char nextc(struct lex_process* lexer)
 static inline void lexer_error(struct lex_process* lexer, int lexer_error, const char* msg, ...)
 {
 	va_list args;
-	va_start(msg, args);
+	va_start(args, msg);
 
 	lexer->compiler->position = lexer->position;
 	compiler_error_v(lexer->compiler, COMPILER_LEXER_ERROR, lexer_error, msg, args);
@@ -237,7 +237,7 @@ READ_START:
 	LEX_UNHANDLED_CHARACTER:
 		// Unhandled character, error out.
 		// TODO: Handle more complex tokens. 
-		lexer_error(lexer, LEXER_INPUT_ERROR, "Invalid character '%c' encountered by lexer.\n", c);
+		lexer_error(lexer, LEXER_INPUT_ERROR, "Invalid character '%c' encountered by lexer.", c);
 		return NULL;
 	}
 
