@@ -19,10 +19,10 @@ PROGRAM_START:
 		char input_buffer[256];
 		char* input = gets_s(input_buffer, sizeof(input_buffer));
 
-		if (!input)
+		if (!input || strlen(input) == 0)
 		{
 			printf("Invalid input.\n");
-			goto PROGRAM_END;
+			goto PROGRAM_START;
 		}
 	
 		input_filename = input;

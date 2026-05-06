@@ -100,23 +100,44 @@ struct token* read_token_string(struct lex_process* lexer, char delim)
 
 	char c = nextc(lexer);
 	for (; c != delim && c != EOF; c = nextc(lexer))
-	{
+	{	
 		if (c == '\\')
 		{
-			// TODO: Handle escape.
-			continue;
+			// Peek next character and handle escaped characters.
+			char next_c = peekc(lexer);
+			switch (next_c)
+			{
+			case 'n':
+				c = '\n';
+				break;
+			case '0':
+				c = '\0';
+				break;
+			case 't':
+				c = '\t';
+				break;
+			case '\'':
+				c = '\'';
+				break;
+			case '\"':
+				c = '"';
+				break;
+			case '\\':
+				c = '\\';
+				break;
+			}
+
+			nextc(lexer); // Advance an extra character.
 		}
 
 		string_append_char_ascii(&string, c);
-
-		// Peek and pre-handle error characters:
-		c = peekc(lexer);
-		if (c == EOF)
-		{
-			lexer_error(lexer, LEXER_INPUT_ERROR, "Encountered EOF when reading String token.");
-			return NULL;
-		}	
 	}
+
+	if (c == EOF)
+	{
+		lexer_error(lexer, LEXER_INPUT_ERROR, "Encountered EOF when reading String token.");
+		return NULL;
+	}	
 
 	struct token* new_token = calloc(1, sizeof(struct token));
 	if (!new_token) abort();
