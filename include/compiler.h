@@ -38,6 +38,11 @@ enum
 	TOKEN_TYPE_NEWLINE,
 };
 
+enum
+{
+	TOKEN_FLAG_MULTILINE = 1 << 0,
+};
+
 // Value associated to a token, can be one of many types. See the token structure.
 union token_value
 {
@@ -60,6 +65,8 @@ struct token
 
 	// Type of token, corresponds to token_type enumeration.
 	int type;
+
+	// Various bit flags whose exact meaning can depend on token type.
 	int flags;
 
 	// Is at least one white space present between this token and the next one ?

@@ -115,10 +115,73 @@ struct token* read_token_string(struct lex_process* lexer, char delim)
 	return new_token;
 }
 
+struct token* read_newline_token(struct lex_process* lexer)
+{
+	char c = peekc(lexer);
+	if (c != '\n')
+	{
+		lexer_error(lexer, LEXER_INPUT_ERROR, "Attempted to read '%c' as new line token.", c);
+		return NULL;
+	}
+
+	nextc(lexer);
+
+	struct token* new_token = calloc(1, sizeof(struct token));
+	if (!new_token) abort();
+
+	new_token->type = TOKEN_TYPE_NEWLINE;
+	new_token->value.cval = '\n';
+	new_token->position = lexer->position;
+
+	printf("Read newline token.\n");
+
+	return new_token;
+}
+
+struct token* read_token_comment(struct lex_process* lexer, int multiline)
+{
+	// It is expected that the current position of the lexer is before the first character in the comment,
+	// meaning the comment start characters ("//" or "/*") have already been read.
+
+	char c = nextc(lexer);
+	char c2 = peekc(lexer);
+
+	struct string_ascii comment_str = string_create_ascii("");
+
+	// Begin reading the comment. Read the characters two by two, c reading the file while c2 peeks it.
+	// This means that, effectively, c2 of iteration N becomes c of iteration N+1 and so on.
+	// Stop at EOF no matter what. If multiline, stop when reading c == '*' and c2 == '/'. Otherwise stop at line break.
+	for (;	(multiline && (c != '*' || c2 != '/')) 
+			||	(!multiline && c != '\n');
+
+			c = nextc(lexer), c2 = peekc(lexer))
+	{
+		if (c == EOF) break; // TODO: Disallow multiline comments that end at EOF instead of */ ?
+
+		// Only add c to the token's string content. c2 is only there to "catch" */ before the asterisk gets added.
+		string_append_char_ascii(&comment_str, c);
+	}
+
+	if (multiline && c2 == '/') c2 = nextc(lexer); // Special case: multiline comment ends with two characters which want to have read, so advance by one more character now.
+
+	// Empty comments are allowed so as soon as this function is entered, it always returns something.
+	struct token* new_token = calloc(1, sizeof(struct token));
+	if (!new_token) abort();
+
+	new_token->type = TOKEN_TYPE_COMMENT;
+	new_token->value.strval = comment_str;
+	new_token->flags |= (TOKEN_FLAG_MULTILINE * multiline);
+	new_token->position = lexer->position;
+
+	printf("Read comment token (multiline = %d). Token value = %s\n", multiline, comment_str.str);
+
+	return new_token;
+}
+
 struct token* read_next_token(struct lex_process* lexer)
 {
 	struct token* token = NULL;
-	char c;
+	char c, c2; // c2 is useful for "simple" token types that have / start with two characters.
 READ_START:
 
 	c = peekc(lexer);
@@ -127,27 +190,53 @@ READ_START:
 	CASE_NUMERIC:
 		token = read_token_number(lexer);
 		break;
-
 	case '"':
 		token = read_token_string(lexer, '"');
 		break;
 	case '\'':
 		token = read_token_string(lexer, '\'');
 		break;
-
 	case ' ':
 		handle_whitespace(lexer);
 		goto READ_START;
-
 	case '\n':
-		// Ignore line break.
-		nextc(lexer);
-		goto READ_START;
+		token = read_newline_token(lexer);
+		break;
+	case '/':
+		// Determine if this is the start of a comment.
+		// If next char is another slash or an asterisk, it is a comment.
+		// Otherwise, it is one of the complex token types.
+		
+		c = nextc(lexer);
+		c2 = peekc(lexer);
+
+		switch (c2)
+		{
+		case('/'):
+			c2 = nextc(lexer);
+			token = read_token_comment(lexer, 0);
+			break;
+		case('*'):
+			c2 = nextc(lexer);
+			token = read_token_comment(lexer, 1);
+			break;
+		default:
+			// Not a comment. Put c back and pretend nothing happened.
+			pushc(lexer, c);
+			break;
+		}
+
+		// If we failed to get a comment token from this character, go to the unhandled block.
+		if (!token) goto LEX_UNHANDLED_CHARACTER;
+		break;
 
 	case(EOF):
 		return NULL; // Lexical analysis finished, return no token.
+
 	default:
+	LEX_UNHANDLED_CHARACTER:
 		// Unhandled character, error out.
+		// TODO: Handle more complex tokens. 
 		lexer_error(lexer, LEXER_INPUT_ERROR, "Invalid character '%c' encountered by lexer.\n", c);
 		return NULL;
 	}
