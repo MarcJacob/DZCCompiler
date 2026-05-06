@@ -123,7 +123,9 @@ enum
 	COMPILER_FILE_COMPILED_OK, // Compilation successful.
 	COMPILER_FATAL_ERROR, // Fatal error in the compiler process itself, not due to user input.
 	COMPILER_FAILED_WITH_ERRORS, // Compilation error of any kind (check this or above for "normal" errors related to user input).
+
 	COMPILER_LEXER_ERROR, // Failed at the Lexical Analysis stage.
+	COMPILER_PARSER_ERROR, // Failed at the Parsing stage.
 };
 
 // Ongoing compilation process.
@@ -142,10 +144,13 @@ struct compile_process
 
 	// Intermediate values
 
-	// Return values for the lex function.
-	struct vector token_vec; // Contains all tokens that should be taken into account in the parsing stage.
+	// Contains all tokens that should be taken into account in the parsing stage.
+	struct vector token_vec;
 
+	// Contains all nodes from the parsing stage.
 	struct vector node_vec;
+
+	// Contains all independent root nodes from the parsing stage.
 	struct vector node_tree_vec;
 
 	// Output Status
@@ -296,6 +301,10 @@ struct parsing_node
 	} value;
 };
 
-struct parsing_node* node_peek(struct vector* vec);
+// Returns a pointer to the last node in the passed in node vector, or NULL if the vector is empty.
+struct parsing_node* node_peek(struct vector* node_vec);
+
+// Same behavior as node_peek, except the value is also popped out of the node vector, and of the root node vector if it is the same node.
+struct parsing_node* node_pop(struct vector* node_vec, struct vector* root_node_vec);
 
 #endif // COMPILER_INCLUDED
