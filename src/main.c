@@ -12,9 +12,10 @@ int main(int argc, char** argv)
 	printf("Hello C Compiler written in C ! Let's compile C. Maybe I'm compiling myself. How exciting.\n");
 
 	const char* input_filename = NULL;
+PROGRAM_START:
 	if (argc == 1)
 	{
-		printf("Please provide a target file for compilation.\n");
+		printf("Enter input file name: ");
 		char input_buffer[256];
 		char* input = gets_s(input_buffer, sizeof(input_buffer));
 
@@ -29,6 +30,13 @@ int main(int argc, char** argv)
 
 	int stage_error;
 	int compile_error = compile_file(input_filename, "compile_test_out.exe", 0, &stage_error);
+
+	// If in "interactive" mode (no CLA), loop back to start if there was an error.
+	if (argc == 1 && compile_error != COMPILER_FILE_COMPILED_OK)
+	{
+		printf("Compiler process ended with errors.\n\n");
+		goto PROGRAM_START;
+	}
 
 PROGRAM_END:
 	system("pause");

@@ -178,7 +178,18 @@ struct token* read_token_comment(struct lex_process* lexer)
 
 			c = nextc(lexer), c2 = peekc(lexer))
 	{
-		if (c == EOF) break; // TODO: Disallow multiline comments that end at EOF instead of */ ?
+		if (c == EOF)
+		{
+			// If comment is multiline, then this is an error case since multiline comments HAVE to be closed !
+			if (multiline)
+			{
+				lexer_error(lexer, LEXER_INPUT_ERROR, "Reached end of file before closing multiline comment. Use '*\\' to close the comment.");
+				string_free_ascii(&comment_str);
+				return NULL;
+			}
+
+			break;
+		}
 
 		// Only add c to the token's string content. c2 is only there to "catch" */ before the asterisk gets added.
 		string_append_char_ascii(&comment_str, c);
@@ -524,6 +535,8 @@ TOKEN_READ_START:
 	{
 		return token;
 	}
+	// Otherwise check for errors.
+	else if (compiler_has_error(lexer->compiler)) return NULL;
 
 	// Otherwise, continue on to operator tokens.
 	// Operators are made up of one or two characters whose exact meaning is contextual, so all the lexer has to do is determine
@@ -532,11 +545,12 @@ TOKEN_READ_START:
 	// Return operator token if found.
 	token = read_token_operator(lexer);
 	if (token) return token;
-
+	else if (compiler_has_error(lexer->compiler)) return NULL;
 
 	// Return symbol token if found.
 	token = read_token_symbol(lexer);
 	if (token) return token;
+	else if (compiler_has_error(lexer->compiler)) return NULL;
 
 	// Word reading: read a word in, then try to read it first as a keyword, then an identifier.
 	struct string_ascii word = read_word(lexer);
@@ -548,8 +562,12 @@ TOKEN_READ_START:
 			// Keyword token was read. Keywords keep a keyword index, not a string, so the word string can be freed.
 			string_free_ascii(&word);
 		}
+		else if (compiler_has_error(lexer->compiler)) return NULL;
 		// If reading a keyword failed, read the word as an identifier.
 		else token = read_token_identifier(lexer, &word);
+
+		if (compiler_has_error(lexer->compiler)) return NULL;
+
 		// Reading an identifier cannot fail provided the word is non-empty, so token will always have a value here.
 		return token;
 	}

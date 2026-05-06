@@ -14,9 +14,9 @@ void compiler_error(struct compile_process* compiler, int compiler_error_code, i
 void compiler_error_v(struct compile_process* compiler, int compiler_error_code, int stage_error,
 	const char* msg, va_list args)
 {
+	fprintf(stderr, "\tERROR: ");
 	vfprintf(stderr, msg, args);
-
-	fprintf(stderr, "\n\ton line %i, col %i in file %s\n", compiler->position.line, compiler->position.col, compiler->position.filename);
+	fprintf(stderr, "\n\t\ton line %i, col %i in file %s\n", compiler->position.line, compiler->position.col, compiler->position.filename);
 	
 	compiler->compiler_error = compiler_error_code;
 	compiler->stage_error = stage_error;
@@ -30,9 +30,10 @@ int compile_file(const char* filename, const char* out_filename, int flags, int*
 	if (!compiler)
 	{
 		// Can't use exit macro since the compiler itself failed to be created.
-		fprintf(stderr, "Failed to create compile process !\n");
 		return COMPILER_FATAL_ERROR;
 	}
+
+	printf("Compiling file '%s'...\n", filename);
 
 	// Perform lexical analysis.
 

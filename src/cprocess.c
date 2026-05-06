@@ -7,14 +7,17 @@ struct compile_process* compile_process_create(const char* filename, const char*
 {
 	FILE* file = fopen(filename, "r");
 
-	if (!file) return NULL;
+	if (!file)
+	{
+		fprintf(stderr, "\tFATAL ERROR: Could not find input file '%s'.\n", filename);
+		return NULL;
+	}
 
 	FILE* out_file = NULL;
 	if (filename_out)
 	{
 		fopen_s(&out_file, filename_out, "w");
-		if (!out_file) return NULL;
-	}
+			}
 
 	// Init compile process structure.
 	struct compile_process* process = calloc(1, sizeof(struct compile_process));
@@ -30,6 +33,10 @@ struct compile_process* compile_process_create(const char* filename, const char*
 
 void compile_process_destroy(struct compile_process* process)
 {
+	if (process->input_file.file)
+	{
+		fclose(process->input_file.file);
+	}
 	free(process);
 }
 
