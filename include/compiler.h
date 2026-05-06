@@ -150,7 +150,7 @@ struct compile_process
 	// Contains all nodes from the parsing stage.
 	struct vector node_vec;
 
-	// Contains all independent root nodes from the parsing stage.
+	// Contains POINTERS to all independent root nodes from the parsing stage.
 	struct vector node_tree_vec;
 
 	// Output Status
@@ -237,7 +237,15 @@ void lex_process_destroy(struct lex_process* lexer);
 enum
 {
 	PARSER_ALL_OK,
+	PARSER_NO_TOKENS, // Parser could not find parseable tokens in the compiler process.
 	PARSER_GENERAL_ERROR,
+};
+
+// Node / Parsing history flags.
+enum
+{
+	NODE_FLAG_INSIDE_EXPRESSION,
+
 };
 
 // Parser node types.
@@ -301,10 +309,25 @@ struct parsing_node
 	} value;
 };
 
+inline int node_is_expressionable(struct parsing_node* node)
+{
+	return node != NULL &&
+	(
+			node->type == NODE_TYPE_EXPRESSION
+		||	node->type == NODE_TYPE_EXPRESSION_PARENTHESES
+		||	node->type == NODE_TYPE_STATEMENT_UNARY
+		||	node->type == NODE_TYPE_NUMBER
+		||	node->type == NODE_TYPE_STRING
+		||	node->type == NODE_TYPE_IDENTIFIER
+	);
+}
+
 // Returns a pointer to the last node in the passed in node vector, or NULL if the vector is empty.
 struct parsing_node* node_peek(struct vector* node_vec);
 
-// Same behavior as node_peek, except the value is also popped out of the node vector, and of the root node vector if it is the same node.
-struct parsing_node* node_pop(struct vector* node_vec, struct vector* root_node_vec);
+// Pops the last node from the node vector, and of the root node vector if it is the same node.
+// Populates out_popped if something was popped.
+// Used to construct more complex nodes from constituent nodes.
+int node_pop(struct vector* node_vec, struct vector* root_node_vec, struct parsing_node* out_popped);
 
 #endif // COMPILER_INCLUDED

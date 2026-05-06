@@ -140,8 +140,8 @@ inline void* vector_back_ptr(struct vector* vec)
 	*((item_type*)vector_get_item_ptr(&vec, index))
 
 // Returns a pointer to the item at the given index.
-#define vector_get_ptr(vec, index, item_type)			\
-	((item_type*)vector_get_item_ptr(&vec, index))
+#define vector_get_ptr(vec, index)			\
+	vector_get_item_ptr(&vec, index)
 
 // Pushes new item by value to the vector. val_type determines the actual type that will be pushed into the vector.
 // Use this to push a rvalue, or to perform an implicit conversion while pushing.

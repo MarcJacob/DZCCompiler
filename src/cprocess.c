@@ -29,7 +29,7 @@ struct compile_process* compile_process_create(const char* filename, const char*
 	process->output_file = out_file;
 
 	process->node_vec = vector_create(struct parsing_node, 64);
-	process->node_tree_vec = vector_create(struct parsing_node, 64);
+	process->node_tree_vec = vector_create(struct parsing_node*, 64);
 
 	return process;
 }
