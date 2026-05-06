@@ -69,7 +69,6 @@ struct token* read_token_number(struct lex_process* lexer)
 	new_token->value.llnum = number;
 	new_token->position = lexer->position;
 
-	printf("Read number token. Token value = %I64d\n", new_token->value.llnum);
 	return new_token;
 }
 
@@ -111,7 +110,6 @@ struct token* read_token_string(struct lex_process* lexer, char delim)
 	new_token->value.strval = string;
 	new_token->position = lexer->position;
 
-	printf("Read string token. Token value = %c%s%c\n", delim, new_token->value.strval.str, delim);
 	return new_token;
 }
 
@@ -132,8 +130,6 @@ struct token* read_token_newline(struct lex_process* lexer)
 	new_token->type = TOKEN_TYPE_NEWLINE;
 	new_token->value.cval = '\n';
 	new_token->position = lexer->position;
-
-	printf("Read newline token.\n");
 
 	return new_token;
 }
@@ -184,8 +180,6 @@ struct token* read_token_comment(struct lex_process* lexer)
 	new_token->flags |= (TOKEN_FLAG_MULTILINE * multiline);
 	new_token->position = lexer->position;
 
-	printf("Read comment token (multiline = %d). Token value = %s\n", multiline, comment_str.str);
-
 	return new_token;
 }
 
@@ -193,6 +187,8 @@ struct token* read_token_operator(struct lex_process* lexer)
 {
 	// pre-allocate token and fill in the fields we can fill in.
 	struct token* new_token = calloc(1, sizeof(struct token));
+	if (!new_token) abort();
+
 	new_token->type = TOKEN_TYPE_OPERATOR;
 	
 	char c = nextc(lexer);
@@ -218,7 +214,7 @@ struct token* read_token_operator(struct lex_process* lexer)
 			op_val = "+";
 		}
 		break;
-	case('-'): // Subtract, Decrement or Subtract-Assignment ?
+	case('-'): // Subtract, Decrement, Subtract-Assignment or Dereferenced Structured Access ?
 		if (c2 == '-')
 		{
 			c2 = nextc(lexer);
@@ -228,6 +224,11 @@ struct token* read_token_operator(struct lex_process* lexer)
 		{
 			c2 = nextc(lexer);
 			op_val = "-=";
+		}
+		else if (c2 == '>')
+		{
+			c2 = nextc(lexer);
+			op_val = "->";
 		}
 		else
 		{
@@ -299,6 +300,24 @@ struct token* read_token_operator(struct lex_process* lexer)
 			op_val = "|";
 		}
 		break;
+	case('('): // Parenthesis scope begin
+		op_val = "(";
+		break;
+	case(')'): // Parenthesis scope end
+		op_val = ")";
+		break;
+	case('['): // Index operator expression begin
+		op_val = "[";
+		break;
+	case(']'): // Index operator expression end
+		op_val = "]";
+		break;
+	case('.'): // Structured access
+		op_val = ".";
+		break;
+	case(','): // Parameters delimiter
+		op_val = ',';
+		break;
 	}
 
 	// Found a value for the operator ! Store it as a string. TODO: New string allocated everytime even though we could just have the string act as a "view" in this case.
@@ -307,12 +326,12 @@ struct token* read_token_operator(struct lex_process* lexer)
 		new_token->value.strval = string_create_ascii(op_val);
 		new_token->position = lexer->position;
 
-		printf("Read Operator Token. Token value = %s\n", new_token->value.strval.str);
 		return new_token;
 	}
 
-	// Failed to read any operator in. Push c character back and return NULL.
+	// Failed to read any operator in. Free token, push c character back and return NULL.
 	pushc(lexer, c);
+	free(new_token);
 	return NULL;
 }
 
@@ -387,6 +406,26 @@ int lex(struct lex_process* lexer)
 	{
 		struct token* token = read_next_token(lexer);
 		if (!token) break;
+
+		// Print read token.
+		switch (token->type)
+		{
+		case TOKEN_TYPE_NUMBER:
+			printf("NUMBER\t%lld\n", token->value.llnum);
+			break;
+		case TOKEN_TYPE_STRING:
+			printf("STRING\t%s\n", token->value.strval.str);
+			break;
+		case TOKEN_TYPE_COMMENT:
+			printf("COMMENT\t%s\n", token->value.strval.str);
+			break;
+		case TOKEN_TYPE_NEWLINE:
+			printf("NEWLINE\t\n");
+			break;
+		case TOKEN_TYPE_OPERATOR:
+			printf("OP\t%s\n", token->value.strval.str);
+			break;
+		}
 
 		vector_push(lexer->token_vec, *token, struct token);
 
