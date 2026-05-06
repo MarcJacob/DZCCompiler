@@ -26,7 +26,7 @@ static struct parser_token_list build_parser_token_list(struct compile_process* 
 		case TOKEN_TYPE_IDENTIFIER:
 		case TOKEN_TYPE_STRING:
 			new_item = calloc(1, sizeof(struct parser_token_list_item));
-			assert(new_item);
+			assert(new_item != NULL);
 
 			new_item->token = token;
 
@@ -47,7 +47,10 @@ static void free_parser_token_list(struct parser_token_list* list)
 {
 	if (!list->head) return; // No head = no content to free.
 
+	// Free the entire list by starting at the head (and nulling it out), going to the next item and
+	// freeing the previous item. This is a sort of "forward freeing" approach.
 	struct parser_token_list_item* item = list->head;
+	list->head = NULL;
 	while (item->next)
 	{
 		struct parser_token_list_item* previous = item;
@@ -55,15 +58,14 @@ static void free_parser_token_list(struct parser_token_list* list)
 		free(previous);
 	}
 
-	// Free last item and null-out list head.
+	// Free last item.
 	free(item);
-	list->head = NULL;
 }
 
 static struct parsing_node* parse_single_token_node(struct token* token)
 {
 	struct parsing_node* new_node = calloc(1, sizeof(struct parsing_node));
-	assert(new_node);
+	assert(new_node != NULL);
 
 	switch (token->type)
 	{
@@ -113,7 +115,7 @@ int parse_token(struct compile_process* compiler, struct token* token)
 	}
 
 	// Append newly-parsed node (by copy) to compiler node vector.
-	vector_push(compiler->node_vec, *new_node, struct parsing_node);
+	vector_push(compiler->node_vec, *new_node);
 	free(new_node);
 	new_node = vector_back_ptr(&compiler->node_vec);
 
@@ -133,7 +135,7 @@ int parse(struct compile_process* compiler)
 	while (token_list_item && parse_token(compiler, token_list_item->token) == 0)
 	{
 		node = node_peek(&compiler->node_vec);
-		vector_push(compiler->node_tree_vec, *node, struct parsing_node);
+		vector_push(compiler->node_tree_vec, *node);
 
 		// Go to next parseable token.
 		token_list_item = token_list_item->next;

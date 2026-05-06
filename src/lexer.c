@@ -630,7 +630,7 @@ int lex(struct lex_process* lexer)
 		struct token* token = read_next_token(lexer);
 		if (!token) break;
 
-		vector_push(lexer->token_vec, *token, struct token);
+		vector_push(lexer->token_vec, *token);
 		free(token); // Free token pointer. It is not needed anymore since we've "moved" it into the vector token.
 	} while (1);
 

@@ -30,7 +30,7 @@ inline void vector_realloc(struct vector* vec, ui16 capacity)
 	byte* prev_mem = vec->mem;
 
 	vec->mem = (byte*)calloc((size_t)capacity, vec->item_size);
-	assert(vec->mem);
+	assert(vec->mem != NULL);
 
 	if (prev_mem)
 	{
@@ -143,9 +143,18 @@ inline void* vector_back_ptr(struct vector* vec)
 #define vector_get_ptr(vec, index, item_type)			\
 	((item_type*)vector_get_item_ptr(&vec, index))
 
-// Pushes new item by value to the vector. TODO: In Debug builds, assert that the pushed type is the correct size (and hopefully correct type).
-#define vector_push(vec, val, item_type)			\
-	{ item_type val_wrapper = val;					\
-	vector_push_item_ptr(&vec, &val_wrapper); }			
+// Pushes new item by value to the vector. val_type determines the actual type that will be pushed into the vector.
+// Use this to push a rvalue, or to perform an implicit conversion while pushing.
+// The type must be of the same size as the vector's item size.
+#define vector_push_val(vec, val, val_type)			\
+	assert(sizeof(val_type) == (vec).item_size);	\
+	{ val_type val_wrapper = val;					\
+	vector_push_item_ptr(&(vec), &val_wrapper); }			
+
+// Pushes new item by value to the vector. Uses the value's address so it only works with lvalues.
+// The value's type must match the vector's item size.
+#define vector_push(vec, val)				\
+	assert(sizeof(val) == (vec).item_size);	\
+	vector_push_item_ptr(&(vec), &val);
 
 #endif // VECTOR_INCLUDED
