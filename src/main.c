@@ -27,6 +27,10 @@ PROGRAM_START:
 	
 		input_filename = input;
 	}
+	else
+	{
+		input_filename = argv[1];
+	}
 
 	int stage_error;
 	int compile_error = compile_file(input_filename, "compile_test_out.exe", 0, &stage_error);

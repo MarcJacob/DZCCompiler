@@ -50,11 +50,17 @@ int compile_file(const char* filename, const char* out_filename, int flags, int*
 		COMPILER_EXIT_FAILURE();
 	}
 
+	// Copy resulting token vector into compiler's vector.
+	compiler->token_vec = vector_create_copy(&lexer->token_vec);
+
+	// Free lexer.
+	lex_process_destroy(lexer);
+	lexer = NULL;
+
 	// Perform parsing
 
 	// Perform code generation
 	
-	lex_process_destroy(lexer);
 	compile_process_destroy(compiler);
 	COMPILER_EXIT_SUCCESS();
 }

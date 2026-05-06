@@ -185,6 +185,10 @@ struct compile_process
 
 	FILE* output_file;
 
+	// Intermediate values
+
+	struct vector token_vec; // Contains all tokens that should be taken into account in the parsing stage.
+
 	// Output Status
 
 	// COMPILER_ERROR enum value, indicating an error in the compiler process itself or which stage of the process failed.

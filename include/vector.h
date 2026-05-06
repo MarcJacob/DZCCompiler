@@ -94,6 +94,15 @@ inline void vector_free_ptr(struct vector* vec)
 	}
 }
 
+inline struct vector vector_create_copy(struct vector* source_vec)
+{
+	struct vector new_vec = vector_create_val(source_vec->item_size, source_vec->size);
+	new_vec.size = source_vec->size;
+	memcpy(new_vec.mem, source_vec->mem, new_vec.size * new_vec.item_size);
+
+	return new_vec;
+}
+
 // Creates a new vector and returns it by value.
 #define vector_create(item_type, start_capacity)	\
 	(vector_create_val(sizeof(item_type), start_capacity))

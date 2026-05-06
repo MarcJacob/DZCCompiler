@@ -637,7 +637,7 @@ int lex(struct lex_process* lexer)
 			printf("NUMBER\t%lld\n", lex_token->value.llnum);
 			break;
 		case TOKEN_TYPE_STRING:
-			printf("STRING\t%s\n", lex_token->value.strval.str);
+			printf("STRING\t\"%s\"\n", lex_token->value.strval.str);
 			break;
 		case TOKEN_TYPE_COMMENT:
 			printf("COMMENT\t%s\n", lex_token->value.strval.str);
