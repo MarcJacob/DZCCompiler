@@ -186,7 +186,7 @@ struct token* read_token_comment(struct lex_process* lexer)
 
 struct token* read_token_operator(struct lex_process* lexer)
 {
-	// pre-allocate token and fill in the fields we can fill in.
+	// Pre-allocate token and fill in the fields we can fill in.
 	struct token* new_token = calloc(1, sizeof(struct token));
 	if (!new_token) abort();
 
@@ -323,23 +323,11 @@ struct token* read_token_operator(struct lex_process* lexer)
 			op_val = "=";
 		}
 		break;
-	case('('): // Parenthesis scope begin
-		op_val = "(";
-		break;
-	case(')'): // Parenthesis scope end
-		op_val = ")";
-		break;
-	case('['): // Index operator expression begin
-		op_val = "[";
-		break;
-	case(']'): // Index operator expression end
-		op_val = "]";
-		break;
 	case('.'): // Structured access
 		op_val = ".";
 		break;
 	case(','): // Parameters delimiter
-		op_val = ',';
+		op_val = ",";
 		break;
 	}
 
@@ -358,6 +346,61 @@ struct token* read_token_operator(struct lex_process* lexer)
 	return NULL;
 }
 
+struct token* read_token_symbol(struct lex_process* lexer)
+{
+	// Pre-allocate token and fill in the fields we can fill in.
+	struct token* new_token = calloc(1, sizeof(struct token));
+	if (!new_token) abort();
+
+	new_token->type = TOKEN_TYPE_SYMBOL;
+	
+	char c = nextc(lexer);
+
+	// Determine str value of symbol token. If no value is assigned, we failed to find a symbol token from the characters.
+	const char* symbol_val = NULL;
+	switch (c)
+	{
+	case('('): // Expression / Exec Operator scope begin
+		symbol_val = "(";
+		break;
+	case(')'): // Expression / Exec Operator scope end
+		symbol_val = ")";
+		break;
+	case('['): // Index expression begin
+		symbol_val = "[";
+		break;
+	case(']'): // Index expression end
+		symbol_val = "]";
+		break;
+	case('{'): // Block scope begin
+		symbol_val = "{";
+		break;
+	case('}'): // Block scope end
+		symbol_val = "}";
+		break;
+	case(';'): // Statement end
+		symbol_val = ";";
+		break;
+	case(':'): // Label locator end
+		symbol_val = ":";
+		break;
+	}
+
+	// If a symbol value was found, return the token.
+	if (symbol_val != NULL)
+	{
+		new_token->value.strval = string_create_ascii(symbol_val);
+		new_token->position = lexer->position;
+
+		return new_token;
+	}
+
+	// ... Otherwise, free the token, push the character back and return NULL.
+	pushc(lexer, c);
+	free(new_token);
+	return NULL;
+}
+
 struct token* read_next_token(struct lex_process* lexer)
 {
 	struct token* token = NULL;
@@ -368,8 +411,6 @@ TOKEN_READ_START:
 
 	// Handle the "Simple" tokens which are tokens that invariably start with the same one or two characters with no regard to context.
 	// They include Numbers, Strings, whitespaces (added to the latest token if any), comments, newlines and EOF.
-
-SIMPLE_TOKEN_READ_START:
 
 	switch (c)
 	{
@@ -383,6 +424,7 @@ SIMPLE_TOKEN_READ_START:
 		token = read_token_string(lexer, '\'');
 		break;
 	case ' ':
+	case '\t': // For now let's treat tabs and whitespaces the same.
 		handle_whitespace(lexer);
 		goto TOKEN_READ_START; // Jump back to beginning of read to handle next character.
 	case '\n':
@@ -406,15 +448,18 @@ SIMPLE_TOKEN_READ_START:
 	// Otherwise, continue on to operator tokens.
 	// Operators are made up of one or two characters whose exact meaning is contextual, so all the lexer has to do is determine
 	// the correct string value for the token and let the parser do the work of figuring out the exact operator type.
-OPERATOR_TOKEN_READ_START:
 
 	// Return operator token if found.
 	token = read_token_operator(lexer);
 	if (token) return token;
 
-LEX_UNHANDLED_CHARACTER:
+
+	// Return symbol token if found.
+	token = read_token_symbol(lexer);
+	if (token) return token;
+
 	// Unhandled character, emit an error and return no token.
-	lexer_error(lexer, LEXER_INPUT_ERROR, "Invalid character '%c' encountered by lexer; Next token type cannot be inferred.", c);
+	lexer_error(lexer, LEXER_INPUT_ERROR, "Invalid character '%c' encountered by lexer. Next token type cannot be inferred.", c);
 	return NULL;
 }
 
@@ -460,6 +505,9 @@ int lex(struct lex_process* lexer)
 			break;
 		case TOKEN_TYPE_OPERATOR:
 			printf("OP\t%s\n", lex_token->value.strval.str);
+			break;
+		case TOKEN_TYPE_SYMBOL:
+			printf("SYMBOL\t%s\n", lex_token->value.strval.str);
 			break;
 		}
 
