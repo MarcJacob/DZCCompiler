@@ -222,33 +222,22 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 	struct parsing_node* node = NULL;
 	int parse_res = -1;
 
-	while(parser_token)
+	tree->history->flags |= NODE_FLAG_INSIDE_EXPRESSION;
+
+	switch (parser_token->token->type)
 	{
-		tree->history->flags |= NODE_FLAG_INSIDE_EXPRESSION;
-
-		switch (parser_token->token->type)
-		{
-		case TOKEN_TYPE_NUMBER:
-			parse_res = parse_single_token_node(tree, parser_token);
-			parser_token = parser_token->next;
-			break;
-		case TOKEN_TYPE_OPERATOR:
-			parse_res = parse_expression(tree, &parser_token);
-			break;
-		default:
-			// Ignore token.
-			parser_token = parser_token->next;
-		}
-		
-		if (parse_res != 0)
-		{
-			break;
-		}
+	case TOKEN_TYPE_NUMBER:
+		parse_res = parse_single_token_node(tree, parser_token);
+		parser_token = parser_token->next;
+		break;
+	case TOKEN_TYPE_OPERATOR:
+		parse_res = parse_expression(tree, &parser_token);
+		break;
 	}
-
+	
 	if (parse_res == 0)
 	{
-		// Update start_token pointer to point to next token that couldn't be parsed as expressionable.
+		// Update start_token pointer to point to next token.
 		*start_token = parser_token;
 	}
 

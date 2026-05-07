@@ -119,7 +119,7 @@ inline void* vector_back_ptr(struct vector* vec)
 
 	if (vec->size == 0) return NULL;
 
-	return vec->mem + vec->size - 1;
+	return vec->mem + (vec->size - 1) * vec->item_size;
 }
 
 // Creates a new vector and returns it by value.
