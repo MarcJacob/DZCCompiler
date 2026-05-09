@@ -326,24 +326,12 @@ int parse(struct compile_process* compiler)
 	
 
 	// Report on all parsed tokens.
-	// TODO: Make a print function for nodes so that it can be recursively re-used.
-	printf("Parsed nodes:\n\n");
+	// TODO: Actually print the *trees*. Currently all nodes are part of a single tree because there is no mechanism to separate them yet.
+	printf("Parsed node trees:\n\n");
 	for (int i = 0; i < compiler->node_vec.size; i++)
 	{
-		struct parsing_node* node = vector_get_ptr(compiler->node_vec, i);
-		switch (node->type)
-		{
-		case NODE_TYPE_EXPRESSION:
-			printf("<EXPRESSION, %s>\n", node->value.exp.op_str);
-			printf("\t<NUMBER, %lld>\n", node->value.exp.left->value.llnum);
-			printf("\t<NUMBER, %lld>\n", node->value.exp.right->value.llnum);
-			break;
-		case NODE_TYPE_NUMBER:
-			printf("\t<NUMBER, %lld>\n", node->value.llnum);
-			break;
-		default:
-			printf("<UNKNOWN>\n");
-		}
+		struct parsing_node* tree_root = vector_get_ptr(compiler->node_vec, i);
+		print_node(tree_root, 0);
 	}
 
 	free_parser_token_list(&token_list);

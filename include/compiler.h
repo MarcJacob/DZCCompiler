@@ -331,6 +331,9 @@ inline int node_is_expressionable(struct parsing_node* node)
 	);
 }
 
+// Recursively prints the contents and of its children if any into the standard output.
+void print_node(struct parsing_node* node, int indentation);
+
 // Returns a pointer to the last node in the passed in node vector, or NULL if the vector is empty.
 struct parsing_node* node_peek(struct vector* node_vec);
 

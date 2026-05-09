@@ -1,6 +1,46 @@
 #include "compiler.h"
 #include <assert.h>
 
+#define NODE_PRINT_MAX_INDENTATION (256)
+
+void print_node(struct parsing_node* node, int indentation)
+{
+	const char indents[NODE_PRINT_MAX_INDENTATION];
+
+	if (indentation >= NODE_PRINT_MAX_INDENTATION)
+	{
+		indentation = NODE_PRINT_MAX_INDENTATION;
+	}
+
+	memset(indents, '\t', indentation);
+	memset(indents + indentation, 0, NODE_PRINT_MAX_INDENTATION - indentation);
+
+	if (node == NULL)
+	{
+		printf("%s<NONE>\n", indents);
+		return;
+	}
+	else if (indentation == NODE_PRINT_MAX_INDENTATION)
+	{
+		printf("%s<...>\n", indents);
+		return;
+	}
+
+	switch (node->type)
+	{
+	case NODE_TYPE_EXPRESSION:
+		printf("%s<EXPRESSION, %s>\n", indents, node->value.exp.op_str);
+		print_node(node->value.exp.left, indentation + 1);
+		print_node(node->value.exp.right, indentation + 1);
+		break;
+	case NODE_TYPE_NUMBER:
+		printf("%s<NUMBER, %lld>\n", indents, node->value.llnum);
+		break;
+	default:
+		printf("%s<UNKNOWN>\n", indents);
+	}
+}
+
 void node_push(struct vector* vec, struct parsing_node* node)
 {
 	vector_push(*vec, *node);
