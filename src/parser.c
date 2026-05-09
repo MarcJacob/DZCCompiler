@@ -90,6 +90,7 @@ static void push_node_to_tree(struct tree_parsing_context* tree, struct parsing_
 }
 
 // Creates a new node from the passed in token, if the token is of a compatible type.
+// Single-token nodes 
 static int parse_single_token_node(struct tree_parsing_context* tree, struct parser_token* token)
 {
 	struct parsing_node* new_node = calloc(1, sizeof(struct parsing_node));
@@ -379,6 +380,8 @@ int parse(struct compile_process* compiler)
 	int parse_res = 0;
 	while ((parse_res = parse_next_tree(compiler, &token_list_item)) == 0)
 	{
+		// The tree's root node should be the node pushed last over the tree parsing process, so it can simply be peeked from the node collection
+		// and added to the tree root nodes vector.
 		node = node_peek(&compiler->node_vec);
 		vector_push(compiler->node_tree_vec, node);
 	}
@@ -400,7 +403,7 @@ int parse(struct compile_process* compiler)
 	printf("Parsed node trees:\n\n");
 	for (int i = 0; i < compiler->node_tree_vec.size; i++)
 	{
-		struct parsing_node* tree_root = vector_get_ptr(compiler->node_vec, i);
+		struct parsing_node* tree_root = *(struct parsing_node**)vector_get_ptr(compiler->node_tree_vec, i);
 		print_node(tree_root, 0);
 	}
 
