@@ -270,13 +270,6 @@ enum
 	PARSER_GENERAL_ERROR,
 };
 
-// Node / Parsing history flags.
-enum
-{
-	NODE_FLAG_INSIDE_EXPRESSION,
-
-};
-
 // Parser node types.
 enum
 {

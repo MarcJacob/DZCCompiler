@@ -101,7 +101,7 @@ enum OPERATOR_TYPE op_get_from_string(const char* op_str, int* out_strlen)
 	// Go through the table linearly and return the first match by a simple string compare.
 	static int TABLE_SIZE = sizeof(OP_STRING_PAIRING_TABLE) / sizeof(struct op_string_pairing);
 
-	const int op_str_len = strlen(op_str);
+	const size_t op_str_len = strlen(op_str);
 
 	enum OPERATOR_TYPE op = OPERATOR_NONE;
 	*out_strlen = 0;
@@ -111,7 +111,7 @@ enum OPERATOR_TYPE op_get_from_string(const char* op_str, int* out_strlen)
 		// or the pairing string.
 
 		const char* pairing_str = OP_STRING_PAIRING_TABLE[pairing_index].op_str;
-		const int pairing_str_len = strlen(pairing_str);
+		const size_t pairing_str_len = strlen(pairing_str);
 
 		// Count number of common characters.
 		int ci = 0;
@@ -139,13 +139,18 @@ const char* op_get_string(enum OPERATOR_TYPE op_val)
 
 	static int TABLE_SIZE = sizeof(OP_STRING_PAIRING_TABLE) / sizeof(struct op_string_pairing);
 
-	for (int op_index = 0; op_index < TABLE_SIZE; op_index++)
+	int op_index = 0;
+	for (; op_index < TABLE_SIZE; op_index++)
 	{
 		if (op_val == OP_STRING_PAIRING_TABLE[op_index].op_val)
 		{
-			return OP_STRING_PAIRING_TABLE[op_index].op_str;
+			break;
 		}
 	}
+
+	// Assert that a valid value was found and return the pairing string.
+	assert(op_index < TABLE_SIZE);
+	return OP_STRING_PAIRING_TABLE[op_index].op_str;
 }
 
 // NONE-terminated group of operators.

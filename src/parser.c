@@ -11,29 +11,6 @@ struct parser_token_list
 	} *head;
 };
 
-struct history
-{
-	int flags;
-};
-
-static struct history* history_begin(int flags)
-{
-	struct history* new_history = calloc(1, sizeof(struct history));
-	assert(new_history != NULL);
-
-	new_history->flags = flags;
-	return new_history;
-}
-
-static struct history* history_down(struct history* history)
-{
-	struct history* new_history = calloc(1, sizeof(struct history));
-	assert(new_history != NULL);
-	memcpy(new_history, history, sizeof(struct history));
-
-	return new_history;
-}
-
 // Builds a linked list of pointers to tokens the parser knows how to parse.
 static struct parser_token_list build_parser_token_list(struct compile_process* compiler)
 {
@@ -94,7 +71,11 @@ struct tree_parsing_context
 {
 	struct compile_process* compiler;
 	struct parser_token* root_token;
-	struct history* history;
+
+	// How many levels "deep" are we in parenthesis symbols ?
+	// Assigned to any new expression node created in this tree. 
+	// The main consequence is that operator priority is ignored between expression nodes at different levels.
+	int parenthesis_level;
 };
 
 // Copies the passed node into the tree's compiler's node vector, and frees the node.
@@ -180,7 +161,6 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	assert(left_operand != NULL);
 
 	node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, left_operand);
-	left_operand->flags |= NODE_FLAG_INSIDE_EXPRESSION;
 
 	// Now parse next node and attempt to use it as right operand.
 	struct parser_token* right_operand_start_token = token->next;
@@ -196,7 +176,6 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	struct parsing_node* right_operand = calloc(1, sizeof(struct parsing_node));
 	assert(right_operand != NULL);
 	node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, right_operand);
-	right_operand->flags |= NODE_FLAG_INSIDE_EXPRESSION;
 
 	struct parsing_node* exp_node = build_expression_node(left_operand, right_operand, op);
 
@@ -214,15 +193,10 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 // An "expressionable" is a node that can form an expression with an operator and other expressionables.
 static int parse_expressionable(struct tree_parsing_context* tree, struct parser_token** start_token)
 {
-	// Cache history and have the tree use a copy for the scope of this function.
-	struct history* prev_history = tree->history;
-	tree->history = history_down(prev_history);
-
 	struct parser_token* parser_token = *start_token;
 	struct parsing_node* node = NULL;
 	int parse_res = -1;
 
-	tree->history->flags |= NODE_FLAG_INSIDE_EXPRESSION;
 
 	switch (parser_token->token->type)
 	{
@@ -241,50 +215,39 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 		*start_token = parser_token;
 	}
 
-	// Free scope history and restore prev history to tree.
-	free(tree->history);
-	tree->history = prev_history;
-
 	return parse_res;
 }
 
-// Parses tokens starting from the provided list item into a node tree, and returns the root node of that tree.
-// Advances the provided tree_start_token to after all the tokens used by the tree parsed by this run of the function.
+// Parses tokens starting from the provided token into a node tree, and returns the root node of that tree.
+// Advances the provided token_list to after all the tokens used by the tree parsed by this run of the function.
 // Returns -1 on error, 0 on successful parse, 1 if token list is empty.
-static int parse_next_tree(struct compile_process* compiler, struct parser_token** tree_start_token)
+static int parse_next_tree(struct compile_process* compiler, struct parser_token** token_list)
 {
-	struct history* parsing_history = history_begin(0);
-
 	struct tree_parsing_context tree = { 0 };
 	tree.compiler = compiler;
-	tree.history = parsing_history;
-	tree.root_token = *tree_start_token;
+	tree.root_token = *token_list;
 
-	struct parser_token* parser_token = *tree_start_token;
+	struct parser_token* parser_token = *token_list;
 	if (parser_token == NULL)
 	{
 		return 1; // No more tokens to parse.
 	}
 
-	while (parser_token)
+	// Parse the tree's root starting from the first token.
+	// TODO: Currently we only know how to parse expressionables without more context. Later expressionables will not be able to be valid tree roots.
+
+	int res = parse_expressionable(&tree, &parser_token);
+	// TODO: Add non-expressionable nodes.
+
+	if (res != 0)
 	{
-		int res = parse_expressionable(&tree, &parser_token);
-		// TODO: Add non-expressionable nodes.
-
-		if (res != 0)
-		{
-			free(parsing_history);
-
-			compiler->position = parser_token->token->position;
-			compiler_error(compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Failed to parse token.");
-			return -1;
-		}
+		compiler->position = parser_token->token->position;
+		compiler_error(compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Failed to parse new node tree.");
+		return -1;
 	}
 
 	// Finished parsing tree. Set the pointer to point to the first token that, in theory, should start the next tree.
-	*tree_start_token = parser_token;
-
-	free(parsing_history);
+	*token_list = parser_token;
 	return 0;
 }
 
@@ -326,9 +289,8 @@ int parse(struct compile_process* compiler)
 	
 
 	// Report on all parsed tokens.
-	// TODO: Actually print the *trees*. Currently all nodes are part of a single tree because there is no mechanism to separate them yet.
 	printf("Parsed node trees:\n\n");
-	for (int i = 0; i < compiler->node_vec.size; i++)
+	for (int i = 0; i < compiler->node_tree_vec.size; i++)
 	{
 		struct parsing_node* tree_root = vector_get_ptr(compiler->node_vec, i);
 		print_node(tree_root, 0);
