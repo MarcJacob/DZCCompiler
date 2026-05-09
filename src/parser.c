@@ -28,6 +28,7 @@ static struct parser_token_list build_parser_token_list(struct compile_process* 
 		case TOKEN_TYPE_IDENTIFIER:
 		case TOKEN_TYPE_STRING:
 		case TOKEN_TYPE_OPERATOR:
+		case TOKEN_TYPE_SYMBOL:
 			new_item = calloc(1, sizeof(struct parser_token));
 			assert(new_item != NULL);
 
@@ -120,11 +121,12 @@ static int parse_single_token_node(struct tree_parsing_context* tree, struct par
 
 // Creates a new expression node from operands and an operator string.
 // This is a "builder" function, it does NOT push the node to any vector or tree.
-struct parsing_node* build_expression_node(struct parsing_node* left_operand, struct parsing_node* right_operand, enum OPERATOR_TYPE op)
+struct parsing_node* build_expression_node(struct parsing_node* left_operand, struct parsing_node* right_operand, enum OPERATOR_TYPE op, int parenthesis_level)
 {
 	assert(left_operand != NULL);
 	assert(right_operand != NULL);
 
+	// Build new "original parent" node with the specific input operator and original precedence over the two input operands.
 	struct parsing_node* exp_node = calloc(1, sizeof(struct parsing_node));
 	assert(exp_node != NULL);
 
@@ -133,6 +135,11 @@ struct parsing_node* build_expression_node(struct parsing_node* left_operand, st
 	exp_node->value.exp.left = left_operand;
 	exp_node->value.exp.right = right_operand;
 	exp_node->value.exp.op = op;
+
+	exp_node->value.exp.parenthesis_level = parenthesis_level;
+
+	// Handle operator precedence.
+	// If the right operand is an expression node with higher precedence and the same parenthesis level, then
 
 	return exp_node;
 }
@@ -163,6 +170,8 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, left_operand);
 
 	// Now parse next node and attempt to use it as right operand.
+	// Cache parenthesis level here as the level that will be associated with the final expression node.
+	int exp_parenthesis_level = tree->parenthesis_level;
 	struct parser_token* right_operand_start_token = token->next;
 	const enum OPERATOR_TYPE op = token->token->value.opval;
 	if (parse_expressionable_for_op(tree, &right_operand_start_token, op) != 0)
@@ -177,9 +186,7 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	assert(right_operand != NULL);
 	node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, right_operand);
 
-	struct parsing_node* exp_node = build_expression_node(left_operand, right_operand, op);
-
-	// TODO: Reorder the expression.
+	struct parsing_node* exp_node = build_expression_node(left_operand, right_operand, op, exp_parenthesis_level);
 
 	push_node_to_tree(tree, exp_node);
 
@@ -190,13 +197,56 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	return 0;
 }
 
-// An "expressionable" is a node that can form an expression with an operator and other expressionables.
-static int parse_expressionable(struct tree_parsing_context* tree, struct parser_token** start_token)
+// Check for parenthesis symbols from the start token and updates it to point to the first non-parenthesis token encountered.
+// Adapt tree parenthesis level according to encountered open / closed parenthesis.
+static void handle_parenthesis(struct tree_parsing_context* tree, struct parser_token** start_token)
 {
+	struct parser_token* token = *start_token;
+	while (token != NULL && token->token->type == TOKEN_TYPE_SYMBOL)
+	{
+		// Check for parenthesis open / close and change the tree's current parenthesis level accordingly.
+		// Fail if we go into the negative levels.
+		if (token->token->value.cval == '(')
+		{
+			tree->parenthesis_level++;
+		}
+		else if (token->token->value.cval == ')')
+		{
+			tree->parenthesis_level--;	
+			
+			if (tree->parenthesis_level < 0)
+			{
+				tree->compiler->position = (*start_token)->token->position;
+				compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Encountered closing parenthesis with no matching opening.");
+				return;
+			}
+		}
+		else
+		{
+			break;
+		}
+
+		token = token->next;
+	}
+
+	*start_token = token;
+}
+
+// An "expressionable" is a node that can form an expression with an operator and other expressionables.
+// This is also where we handle parenthesis level increase or decrease.
+static int parse_expressionable(struct tree_parsing_context* tree, struct parser_token** start_token)
+{	
+	// Handle pre-expression parenthesis. Cache tree's current level so it can be restored if necessary.
+	int parenthesis_level = tree->parenthesis_level;
+	handle_parenthesis(tree, start_token);
+	if (compiler_has_error(tree->compiler))
+	{
+		return -1;
+	}
+
 	struct parser_token* parser_token = *start_token;
 	struct parsing_node* node = NULL;
 	int parse_res = -1;
-
 
 	switch (parser_token->token->type)
 	{
@@ -214,8 +264,20 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 		// Update start_token pointer to point to next token.
 		*start_token = parser_token;
 	}
+	else // Error while parsing expression. Return error code after restoring tree's starting parenthesis level.
+	{
+		tree->parenthesis_level = parenthesis_level;
+		return parse_res;
+	}
 
-	return parse_res;
+	// Handle post-expression parenthesis if any.
+	handle_parenthesis(tree, start_token);
+	if (compiler_has_error(tree->compiler))
+	{
+		return -1;
+	}
+	
+	return 0;
 }
 
 // Parses tokens starting from the provided token into a node tree, and returns the root node of that tree.
@@ -233,17 +295,22 @@ static int parse_next_tree(struct compile_process* compiler, struct parser_token
 		return 1; // No more tokens to parse.
 	}
 
-	// Parse the tree's root starting from the first token.
-	// TODO: Currently we only know how to parse expressionables without more context. Later expressionables will not be able to be valid tree roots.
-
-	int res = parse_expressionable(&tree, &parser_token);
-	// TODO: Add non-expressionable nodes.
-
-	if (res != 0)
+	// Parse the tree's root starting from the first token until we're out of tokens.
+	// TODO: Currently we only know how to parse expressionables without more context. Later expressionables will not be able to be valid tree roots,
+	// and instead of continuously parsing tokens we'll instead look for valid roots and stop once the recursive parsing process for that node is done.
+	while (parser_token != NULL)
 	{
-		compiler->position = parser_token->token->position;
-		compiler_error(compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Failed to parse new node tree.");
-		return -1;
+		int res = parse_expressionable(&tree, &parser_token);
+		// TODO: Add non-expressionable nodes.
+
+		if (res != 0)
+		{
+			compiler->position = parser_token->token->position;
+			compiler_error(compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Failed to parse new node tree.");
+			return -1;
+		}
+
+		// TODO: Break out of the loop if we've parsed a valid tree node. 
 	}
 
 	// Finished parsing tree. Set the pointer to point to the first token that, in theory, should start the next tree.

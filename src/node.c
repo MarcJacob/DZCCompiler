@@ -29,7 +29,7 @@ void print_node(struct parsing_node* node, int indentation)
 	switch (node->type)
 	{
 	case NODE_TYPE_EXPRESSION:
-		printf("%s<EXPRESSION, (%s)>\n", indents, op_get_string(node->value.exp.op));
+		printf("%s<EXPRESSION, (OP %s) (Depth = %d)>\n", indents, op_get_string(node->value.exp.op), node->value.exp.parenthesis_level);
 		print_node(node->value.exp.left, indentation + 1);
 		print_node(node->value.exp.right, indentation + 1);
 		break;

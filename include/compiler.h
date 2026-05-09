@@ -274,7 +274,6 @@ enum
 enum
 {
 	NODE_TYPE_EXPRESSION,
-	NODE_TYPE_EXPRESSION_PARENTHESES,
 	NODE_TYPE_NUMBER,
 	NODE_TYPE_IDENTIFIER,
 	NODE_TYPE_STRING,
@@ -324,19 +323,19 @@ struct parsing_node
 
 	union
 	{
-		char cval;
-		struct string_ascii sval;
-		ui32 inum;
-		ui64 llnum;	
-		
 		struct parsing_node_exp_value
 		{
 			struct parsing_node* left;
 			struct parsing_node* right;
 
 			enum OPERATOR_TYPE op;
+			int parenthesis_level;
 		} exp;
 
+		char cval;
+		struct string_ascii sval;
+		ui32 inum;
+		ui64 llnum;	
 	} value;
 };
 
@@ -345,7 +344,6 @@ inline int node_is_expressionable(struct parsing_node* node)
 	return node != NULL &&
 	(
 			node->type == NODE_TYPE_EXPRESSION
-		||	node->type == NODE_TYPE_EXPRESSION_PARENTHESES
 		||	node->type == NODE_TYPE_STATEMENT_UNARY
 		||	node->type == NODE_TYPE_NUMBER
 		||	node->type == NODE_TYPE_STRING

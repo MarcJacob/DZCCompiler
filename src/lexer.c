@@ -285,57 +285,36 @@ struct token* read_token_operator(struct lex_process* lexer)
 
 struct token* read_token_symbol(struct lex_process* lexer)
 {
-	// Pre-allocate token and fill in the fields we can fill in.
-	struct token* new_token = calloc(1, sizeof(struct token));
-	if (!new_token) abort();
-
-	new_token->type = TOKEN_TYPE_SYMBOL;
-	
 	char c = nextc(lexer);
-
-	// Determine str value of symbol token. If no value is assigned, we failed to find a symbol token from the characters.
-	const char* symbol_val = NULL;
+	
+	struct token* new_token = NULL;
+	
+	// TODO: Multi-character symbols ?
 	switch (c)
 	{
 	case('('): // Expression / Exec Operator scope begin
-		symbol_val = "(";
-		break;
 	case(')'): // Expression / Exec Operator scope end
-		symbol_val = ")";
-		break;
 	case('['): // Index expression begin
-		symbol_val = "[";
-		break;
 	case(']'): // Index expression end
-		symbol_val = "]";
-		break;
 	case('{'): // Block scope begin
-		symbol_val = "{";
-		break;
 	case('}'): // Block scope end
-		symbol_val = "}";
-		break;
 	case(';'): // Statement end
-		symbol_val = ";";
-		break;
 	case(':'): // Label locator end
-		symbol_val = ":";
-		break;
-	}
 
-	// If a symbol value was found, return the token.
-	if (symbol_val != NULL)
-	{
-		new_token->value.strval = string_create_ascii(symbol_val);
+		// Char is a symbol. Allocate and populate new_token.
+		new_token = calloc(1, sizeof(struct token));
+		assert(new_token);
+
+		new_token->type = TOKEN_TYPE_SYMBOL;
+
+		new_token->value.cval = c;
 		new_token->position = lexer->position;
 
-		return new_token;
+	default:
+		break; // Char isn't a symbol, leave new_token at NULL.
 	}
 
-	// ... Otherwise, free the token, push the character back and return NULL.
-	pushc(lexer, c);
-	free(new_token);
-	return NULL;
+	return new_token;
 }
 
 int is_word_char(char c, int can_be_number)
@@ -535,10 +514,10 @@ int lex(struct lex_process* lexer)
 			printf("NEWLINE\t\n");
 			break;
 		case TOKEN_TYPE_OPERATOR:
-			printf("OP\t%s\n", lex_token->value.strval.str);
+			printf("OP\t%s\n", op_get_string(lex_token->value.opval));
 			break;
 		case TOKEN_TYPE_SYMBOL:
-			printf("SYMBOL\t%s\n", lex_token->value.strval.str);
+			printf("SYMBOL\t'%c'\n", lex_token->value.cval);
 			break;
 		case TOKEN_TYPE_KEYWORD:
 			printf("KEYWORD\t%d ('%s')\n", lex_token->value.keyword_index, KEYWORDS_STR_TABLE[lex_token->value.keyword_index]);
