@@ -139,7 +139,7 @@ static int parse_single_token_node(struct tree_parsing_context* tree, struct par
 
 // Creates a new expression node from operands and an operator string.
 // This is a "builder" function, it does NOT push the node to any vector or tree.
-struct parsing_node* build_expression_node(struct parsing_node* left_operand, struct parsing_node* right_operand, const char* op_str)
+struct parsing_node* build_expression_node(struct parsing_node* left_operand, struct parsing_node* right_operand, enum OPERATOR_TYPE op)
 {
 	assert(left_operand != NULL);
 	assert(right_operand != NULL);
@@ -151,14 +151,14 @@ struct parsing_node* build_expression_node(struct parsing_node* left_operand, st
 
 	exp_node->value.exp.left = left_operand;
 	exp_node->value.exp.right = right_operand;
-	exp_node->value.exp.op_str = op_str;
+	exp_node->value.exp.op = op;
 
 	return exp_node;
 }
 
 static int parse_expressionable(struct tree_parsing_context* tree, struct parser_token** start_token);
 
-static int parse_expressionable_for_op(struct tree_parsing_context* tree, struct parser_token** start_token, const char* op_str)
+static int parse_expressionable_for_op(struct tree_parsing_context* tree, struct parser_token** start_token, enum OPERATOR_TYPE op)
 {
 	return parse_expressionable(tree, start_token);
 }
@@ -184,8 +184,8 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 
 	// Now parse next node and attempt to use it as right operand.
 	struct parser_token* right_operand_start_token = token->next;
-	const char* op_str = token->token->value.strval.str;
-	if (parse_expressionable_for_op(tree, &right_operand_start_token, op_str) != 0)
+	const enum OPERATOR_TYPE op = token->token->value.opval;
+	if (parse_expressionable_for_op(tree, &right_operand_start_token, op) != 0)
 	{
 		// Right token was not an expressionable.
 		free(left_operand);
@@ -198,7 +198,7 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, right_operand);
 	right_operand->flags |= NODE_FLAG_INSIDE_EXPRESSION;
 
-	struct parsing_node* exp_node = build_expression_node(left_operand, right_operand, op_str);
+	struct parsing_node* exp_node = build_expression_node(left_operand, right_operand, op);
 
 	// TODO: Reorder the expression.
 

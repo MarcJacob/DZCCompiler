@@ -10,6 +10,34 @@
 // ----------- GENERAL SYMBOLS -------------
 // Symbol declarations that are shared across the compiler code.
 
+// Enumerated operator types, in no particular order except for NONE = 0.
+enum OPERATOR_TYPE
+{
+	// None operator, representing an absence of operator.
+	OPERATOR_NONE = 0,
+
+	// Mathematical operations, acting over left and right numerical operands.
+	OPERATOR_ADD,
+	OPERATOR_SUB,
+	OPERATOR_MULT,
+	OPERATOR_DIV,
+	OPERATOR_MOD,
+	OPERATOR_POW,
+
+	OPERATOR_TYPE_COUNT,
+};
+
+// Returns the operator type enumeration value associated with the string / longest valid beginning sub-string.
+// Also return the length of the string so the user can know how many characters from the input string were "valid".
+enum OPERATOR_TYPE op_get_from_string(const char* op_str, int* out_strlen);
+
+// Returns the null-terminated ASCII string associated with the operator type.
+// TODO: Consider adding a "Display-friendly" aswell, to differentiate between identifying the operator on a display and identifying it from source code.
+const char* op_get_string(enum OPERATOR_TYPE op_val);
+
+// Returns whether operator A has higher priority then operator B.
+int op_is_higher_priority(enum OPERATOR_TYPE op_A, enum OPERATOR_TYPE op_B);
+
 struct file_position
 {
 	int line;
@@ -42,6 +70,7 @@ union token_value
 	ui64 llnum;
 	ui32 inum;
 	ui16 keyword_index; // Index into keyword table.
+	enum OPERATOR_TYPE opval;
 	char cval;
 };
 
@@ -312,7 +341,7 @@ struct parsing_node
 			struct parsing_node* left;
 			struct parsing_node* right;
 
-			const char* op_str;
+			enum OPERATOR_TYPE op;
 		} exp;
 
 	} value;

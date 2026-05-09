@@ -253,156 +253,32 @@ struct token* read_token_operator(struct lex_process* lexer)
 
 	new_token->type = TOKEN_TYPE_OPERATOR;
 	
-	char c = nextc(lexer);
-	char c2 = peekc(lexer);
+	// Get current + next character together and attempt to find a corresponding operator type value.
+	char op_search_string[3];
+	op_search_string[0] = nextc(lexer);
+	op_search_string[1] = peekc(lexer);
+	op_search_string[2] = '\0';
 
-	// Determine str value of operator token. If no value is assigned, we failed to find an operator token from the characters.
-	const char* op_val = NULL;
-	switch (c)
-	{
-	case('+'): // Add, Increment or Add-Assignment ?
-		if (c2 == '+')
-		{
-			c2 = nextc(lexer);
-			op_val = "++";
-		}
-		else if (c2 == '=')
-		{
-			c2 = nextc(lexer);
-			op_val = "+=";
-		}
-		else
-		{
-			op_val = "+";
-		}
-		break;
-	case('-'): // Subtract, Decrement, Subtract-Assignment or Dereferenced Structured Access ?
-		if (c2 == '-')
-		{
-			c2 = nextc(lexer);
-			op_val = "--";
-		}
-		else if (c2 == '=')
-		{
-			c2 = nextc(lexer);
-			op_val = "-=";
-		}
-		else if (c2 == '>')
-		{
-			c2 = nextc(lexer);
-			op_val = "->";
-		}
-		else
-		{
-			op_val = "-";
-		}
-		break;
-	case('*'): // Multiply, Multiply-Assignment, pointer dereferencing or pointer type ?
-		if (c2 == '=')
-		{
-			c2 = nextc(lexer);
-			op_val = "*=";
-		}
-		else
-		{
-			op_val = "*";
-		}
-		break;
-	case('/'): // Division or Divide-Assignment
-		if (c2 == '=')
-		{
-			c2 = nextc(lexer);
-			op_val = "/=";
-		}
-		else
-		{
-			op_val = "/";
-		}
-		break;
-	case('>'): // Greater, Greater equal or Bitshift Right ?
-		if (c2 == '=')
-		{
-			c2 = nextc(lexer);
-			op_val = ">=";
-		}
-		else if (c2 == '>')
-		{
-			c2 = nextc(lexer);
-			op_val = ">>";
-		}
-		else
-		{
-			op_val = ">";
-		}
-		break;
-	case('<'): // Lower, Lower equal or Bitshift Left ?	
-		if (c2 == '=')
-		{
-			c2 = nextc(lexer);
-			op_val = "<=";
-		}
-		else if (c2 == '<')
-		{
-			c2 = nextc(lexer);
-			op_val = "<<";
-		}
-		else
-		{
-			op_val = "<";
-		}
-		break;
-	case('&'): // Bitwise AND or AND operator ?
-		if (c2 == '&')
-		{
-			c2 = nextc(lexer);
-			op_val = "&&";
-		}
-		else
-		{
-			op_val = "&";
-		}
-		break;
-	case('|'): // Bitwise OR or OR operator ?
-		if (c2 == '|')
-		{
-			c2 = nextc(lexer);
-			op_val = "||";
-		}
-		else
-		{
-			op_val = "|";
-		}
-		break;
-	case('='): // Assignment or Equal operator ?
-		if (c2 == '=')
-		{
-			c2 = nextc(lexer);
-			op_val = "==";
-		}
-		else
-		{
-			op_val = "=";
-		}
-		break;
-	case('.'): // Structured access
-		op_val = ".";
-		break;
-	case(','): // Parameters delimiter
-		op_val = ",";
-		break;
-	}
+	int op_str_len;
+	enum OPERATOR_TYPE op_val = op_get_from_string(op_search_string, &op_str_len);
 
-	// Found a value for the operator ! Store it as a string. TODO: New string allocated everytime even though we could just have the string act as a "view" in this case.
-	if (op_val != NULL)
+	// Found a value for the operator ! 
+	// Populate and return token, while "nexting" an extra character if needed (TODO: Proper support for operators made of more than 2 characters).	
+	if (op_val != OPERATOR_NONE)
 	{
-		new_token->value.strval = string_create_ascii(op_val);
+		new_token->value.opval = op_val;
 		new_token->position = lexer->position;
+
+		if (op_str_len > 1)
+		{
+			nextc(lexer);
+		}
 
 		return new_token;
 	}
 
-	// Failed to read any operator in. Free token, push c character back and return NULL.
-	pushc(lexer, c);
+	// Failed to read any operator in. Free token, push first character back and return NULL.
+	pushc(lexer, op_search_string[0]);
 	free(new_token);
 	return NULL;
 }
