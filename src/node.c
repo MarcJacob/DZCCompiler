@@ -3,6 +3,61 @@
 
 #define NODE_PRINT_MAX_INDENTATION (256)
 
+// Tries to calculate the arithmetic result of an expression node, with all identifiers considered equal to 0.
+// TODO: Move this elsewhere so that context can be provided in case the identifiers themselves have a compile-time-resolvable value.
+// TODO: Support non-integers.
+int calculate_expression_node_result(struct parsing_node* root_exp)
+{
+	int left, right;
+
+	switch (root_exp->value.exp.left->type)
+	{
+	case NODE_TYPE_EXPRESSION:
+		left = calculate_expression_node_result(root_exp->value.exp.left);
+		break;
+	case NODE_TYPE_NUMBER:
+		left = root_exp->value.exp.left->value.llnum;
+		break;
+	default:
+		left = 0;
+	}
+
+	switch (root_exp->value.exp.right->type)
+	{
+	case NODE_TYPE_EXPRESSION:
+		right = calculate_expression_node_result(root_exp->value.exp.right);
+		break;
+	case NODE_TYPE_NUMBER:
+		right = root_exp->value.exp.right->value.llnum;
+		break;
+	default:
+		right = 0;
+	}
+
+	switch (root_exp->value.exp.op)
+	{
+	case OPERATOR_ADD:
+		return left + right;
+	case OPERATOR_SUB:
+		return left - right;
+	case OPERATOR_MULT:
+		return left * right;
+	case OPERATOR_DIV:
+		if (right == 0) return (~0);
+		return left / right;
+	case OPERATOR_MOD:
+		if (right == 0) return (~0);
+		return left % 0;
+	case OPERATOR_POW:
+		if (right == 0) return 1;
+		for (int i = 0; i < right; i++)
+		{
+			left *= left;
+		}
+		return left;
+	}
+}
+
 void print_node(struct parsing_node* node, int indentation)
 {
 	const char indents[NODE_PRINT_MAX_INDENTATION];
@@ -29,7 +84,7 @@ void print_node(struct parsing_node* node, int indentation)
 	switch (node->type)
 	{
 	case NODE_TYPE_EXPRESSION:
-		printf("%s<EXPRESSION, (OP %s) (Depth = %d)>\n", indents, op_get_string(node->value.exp.op), node->value.exp.parenthesis_level);
+		printf("%s<EXPRESSION, (OP %s) (Depth = %d)> RESULT = %d\n", indents, op_get_string(node->value.exp.op), node->value.exp.parenthesis_level, calculate_expression_node_result(node));
 		print_node(node->value.exp.left, indentation + 1);
 		print_node(node->value.exp.right, indentation + 1);
 		break;
