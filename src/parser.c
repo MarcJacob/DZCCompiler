@@ -121,6 +121,7 @@ static int parse_single_token_node(struct tree_parsing_context* tree, struct par
 
 // Creates a new expression node from operands and an operator string.
 // This is a "builder" function, it does NOT push the node to any vector or tree.
+// Returns the new node, or the operand which ends up being the top-level node because of operator precedence.
 struct parsing_node* build_expression_node(struct parsing_node* left_operand, struct parsing_node* right_operand, enum OPERATOR_TYPE op, int parenthesis_level)
 {
 	assert(left_operand != NULL);
@@ -131,16 +132,31 @@ struct parsing_node* build_expression_node(struct parsing_node* left_operand, st
 	assert(exp_node != NULL);
 
 	exp_node->type = NODE_TYPE_EXPRESSION;
-
-	exp_node->value.exp.left = left_operand;
-	exp_node->value.exp.right = right_operand;
+	exp_node->value.exp.parenthesis_level = parenthesis_level;
 	exp_node->value.exp.op = op;
 
-	exp_node->value.exp.parenthesis_level = parenthesis_level;
+	exp_node->value.exp.left = left_operand;
 
-	// Handle operator precedence.
-	// If the right operand is an expression node with higher precedence and the same parenthesis level, then
+	// Handle operator precedence with right operand if that operand is itself an expression and is located at the same parenthesis level,
+	// and has an operator of LOWER priority than the this expression's.
+	if (right_operand->type == NODE_TYPE_EXPRESSION && parenthesis_level == right_operand->value.exp.parenthesis_level
+		&& op_is_higher_priority(op, right_operand->value.exp.op))
+	{
+		// If the right operand is of a LOWER priority than this one, this node should become that operand expression's LEFT operand,
+		// while the previous expression there should become this node's right operand.
+		// IE, if we have 1 / (2 * 3) + 4, the division will initially be the top level expression, but needs to become the addition's LEFT operand,
+		// and the (2 * 3) needs to become the division's right operand instead.a
 
+		struct parsing_node* previous_left = right_operand->value.exp.left;
+		right_operand->value.exp.left = exp_node;
+		exp_node->value.exp.right = previous_left;
+		
+		// Return the actual top-level node, which ends up being the input right operand.
+		return right_operand;
+	}
+
+	// Otherwise just assign it as the right operand of this expression with no further worry.
+	exp_node->value.exp.right = right_operand;
 	return exp_node;
 }
 
