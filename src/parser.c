@@ -157,6 +157,8 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	struct parser_token* token = *start_token;
 	assert(token != NULL && token->token->type == TOKEN_TYPE_OPERATOR);
 
+	printf("Parsing expression node around operator %s...\n", op_get_string(token->token->value.opval));
+
 	// The left operand is parsed BEFORE this node, so it should be the last item in the compiler's node vec.
 	if (!node_is_expressionable(node_peek(&tree->compiler->node_vec)))
 	{
@@ -189,6 +191,8 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	struct parsing_node* exp_node = build_expression_node(left_operand, right_operand, op, exp_parenthesis_level);
 
 	push_node_to_tree(tree, exp_node);
+
+	printf("Parsed expression node around operator %s\n", op_get_string(token->token->value.opval));
 
 	// Update start_token pointer to point to next token.
 	// After parsing the right operand, its start token pointer should be equal to the token coming after.
@@ -236,27 +240,56 @@ static void handle_parenthesis(struct tree_parsing_context* tree, struct parser_
 // This is also where we handle parenthesis level increase or decrease.
 static int parse_expressionable(struct tree_parsing_context* tree, struct parser_token** start_token)
 {	
-	// Handle pre-expression parenthesis. Cache tree's current level so it can be restored if necessary.
+	// Cache parenthesis level of this "expressionable scope".
 	int parenthesis_level = tree->parenthesis_level;
+
+	// Handle pre-expression parenthesis.
 	handle_parenthesis(tree, start_token);
 	if (compiler_has_error(tree->compiler))
 	{
 		return -1;
 	}
 
+
 	struct parser_token* parser_token = *start_token;
 	struct parsing_node* node = NULL;
 	int parse_res = -1;
 
-	switch (parser_token->token->type)
+	// Keep parsing tokens until we've reached back "above" the entry parenthesis level or a suitable end-of-expression symbol.
+	while (tree->parenthesis_level >= parenthesis_level)
 	{
-	case TOKEN_TYPE_NUMBER:
-		parse_res = parse_single_token_node(tree, parser_token);
-		parser_token = parser_token->next;
-		break;
-	case TOKEN_TYPE_OPERATOR:
-		parse_res = parse_expression(tree, &parser_token);
-		break;
+		switch (parser_token->token->type)
+		{
+		case TOKEN_TYPE_NUMBER:
+			parse_res = parse_single_token_node(tree, parser_token);
+			parser_token = parser_token->next;
+			break;
+		case TOKEN_TYPE_OPERATOR:
+			parse_res = parse_expression(tree, &parser_token);
+			break;
+		}
+		
+		if (parse_res != 0) break; // Break out immediately on parsing error.
+
+		// After every successful parse, handle any new parenthesis that may be encountered.
+		handle_parenthesis(tree, &parser_token);
+		if (compiler_has_error(tree->compiler))
+		{
+			return -1;
+		}
+
+		if (parser_token == NULL) // Break out when reaching something that must end the expression.
+		{
+			// Check that we at the top parenthesis level.
+			if (tree->parenthesis_level > 0)
+			{
+				parse_res = -1;
+				tree->compiler->position = node_peek(&tree->compiler->node_vec)->position;
+				compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Reached end of expression with unclosed parenthesis scopes.");
+			}
+			break;		
+		}
+
 	}
 	
 	if (parse_res == 0)
@@ -268,13 +301,6 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 	{
 		tree->parenthesis_level = parenthesis_level;
 		return parse_res;
-	}
-
-	// Handle post-expression parenthesis if any.
-	handle_parenthesis(tree, start_token);
-	if (compiler_has_error(tree->compiler))
-	{
-		return -1;
 	}
 	
 	return 0;
@@ -298,7 +324,6 @@ static int parse_next_tree(struct compile_process* compiler, struct parser_token
 	// Parse the tree's root starting from the first token until we're out of tokens.
 	// TODO: Currently we only know how to parse expressionables without more context. Later expressionables will not be able to be valid tree roots,
 	// and instead of continuously parsing tokens we'll instead look for valid roots and stop once the recursive parsing process for that node is done.
-	while (parser_token != NULL)
 	{
 		int res = parse_expressionable(&tree, &parser_token);
 		// TODO: Add non-expressionable nodes.
