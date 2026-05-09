@@ -29,6 +29,7 @@ static struct parser_token_list build_parser_token_list(struct compile_process* 
 		case TOKEN_TYPE_STRING:
 		case TOKEN_TYPE_OPERATOR:
 		case TOKEN_TYPE_SYMBOL:
+		case TOKEN_TYPE_NEWLINE: // Temporary, until we introduce end of statement tokens.
 			new_item = calloc(1, sizeof(struct parser_token));
 			assert(new_item != NULL);
 
@@ -79,11 +80,13 @@ struct tree_parsing_context
 	int parenthesis_level;
 };
 
-// Copies the passed node into the tree's compiler's node vector, and frees the node.
+// Copies the passed node into the tree's compiler's node vectors, and frees the node.
 // Also populates the node's context.
 static void push_node_to_tree(struct tree_parsing_context* tree, struct parsing_node* node)
 {
 	vector_push(tree->compiler->node_vec, *node);
+	struct parsing_node* pushed = vector_back_ptr(&tree->compiler->node_vec);
+	vector_push(tree->compiler->node_tree_vec, pushed);
 	free(node);
 
 	// TODO: Set node context.
@@ -174,8 +177,6 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	struct parser_token* token = *start_token;
 	assert(token != NULL && token->token->type == TOKEN_TYPE_OPERATOR);
 
-	printf("Parsing expression node around operator %s...\n", op_get_string(token->token->value.opval));
-
 	// The left operand is parsed BEFORE this node, so it should be the last item in the compiler's node vec.
 	if (!node_is_expressionable(node_peek(&tree->compiler->node_vec)))
 	{
@@ -208,8 +209,6 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	struct parsing_node* exp_node = build_expression_node(left_operand, right_operand, op, exp_parenthesis_level);
 
 	push_node_to_tree(tree, exp_node);
-
-	printf("Parsed expression node around operator %s\n", op_get_string(token->token->value.opval));
 
 	// Update start_token pointer to point to next token.
 	// After parsing the right operand, its start token pointer should be equal to the token coming after.
@@ -295,7 +294,7 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 			return -1;
 		}
 
-		if (parser_token == NULL) // Break out when reaching something that must end the expression.
+		if (parser_token == NULL || parser_token->token->type == TOKEN_TYPE_NEWLINE) // Break out when reaching something that must end the expression.
 		{
 			// Check that we at the top parenthesis level.
 			if (tree->parenthesis_level > 0)
@@ -341,18 +340,30 @@ static int parse_next_tree(struct compile_process* compiler, struct parser_token
 	// Parse the tree's root starting from the first token until we're out of tokens.
 	// TODO: Currently we only know how to parse expressionables without more context. Later expressionables will not be able to be valid tree roots,
 	// and instead of continuously parsing tokens we'll instead look for valid roots and stop once the recursive parsing process for that node is done.
+	while (parser_token != NULL)
 	{
-		int res = parse_expressionable(&tree, &parser_token);
-		// TODO: Add non-expressionable nodes.
+		int res = -1;	
+		switch (parser_token->token->type)
+		{
+		case TOKEN_TYPE_NUMBER:
+		case TOKEN_TYPE_OPERATOR:
+			res = parse_expressionable(&tree, &parser_token);
+			if (res == 0) res = 1;
+			break;
+		case TOKEN_TYPE_NEWLINE:
+			// Skip newlines entirely.
+			res = 0;
+			parser_token = parser_token->next;
+			break;
+		}
 
-		if (res != 0)
+		if (res < 0)
 		{
 			compiler->position = parser_token->token->position;
 			compiler_error(compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Failed to parse new node tree.");
 			return -1;
 		}
-
-		// TODO: Break out of the loop if we've parsed a valid tree node. 
+		else if (res == 1) break; // Parsing result of 1 means we've parsed an appropriate tree node.
 	}
 
 	// Finished parsing tree. Set the pointer to point to the first token that, in theory, should start the next tree.
@@ -380,10 +391,6 @@ int parse(struct compile_process* compiler)
 	int parse_res = 0;
 	while ((parse_res = parse_next_tree(compiler, &token_list_item)) == 0)
 	{
-		// The tree's root node should be the node pushed last over the tree parsing process, so it can simply be peeked from the node collection
-		// and added to the tree root nodes vector.
-		node = node_peek(&compiler->node_vec);
-		vector_push(compiler->node_tree_vec, node);
 	}
 
 	// Handle error. Emit a generic error if none are currently emitted to the compiler but parsing failed.
