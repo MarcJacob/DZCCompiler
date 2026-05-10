@@ -205,3 +205,86 @@ int op_is_higher_priority(enum OPERATOR_TYPE op_A, enum OPERATOR_TYPE op_B)
 	// Return whether operator A is in a "higher" group than B (meaning strictly lower index).
 	return op_A_group < op_B_group;
 }
+
+// Pairs together a KEYWORD value and its string representation.
+struct keyword_string_pairing
+{
+	enum KEYWORD kwd;
+	const char* str;
+};
+
+// Global lookup table to determine whether a string is a keyword, and its index.
+// Must be aligned to 
+static const struct keyword_string_pairing KEYWORD_STRING_PAIRING_TABLE[] =
+{
+	// Primitive types
+	{ KEYWORD_TYPE_CHAR, "char" },
+	{ KEYWORD_TYPE_SHORT, "short" },
+	{ KEYWORD_TYPE_INT, "int"},
+	{ KEYWORD_TYPE_LONG, "long"},
+	{ KEYWORD_TYPE_FLOAT, "float"},
+	{ KEYWORD_TYPE_DOUBLE, "double"},
+
+	// Identifier modifiers
+	{ KEYWORD_CONST, "const" },
+	{ KEYWORD_UNSIGNED, "unsigned" },
+	{ KEYWORD_VOLATILE, "volatile" },
+	{ KEYWORD_STATIC, "static" },
+	{ KEYWORD_EXTERN, "extern" },
+
+	// Special operators
+	{ KEYWORD_SIZEOF, "sizeof" },
+
+	// Scope modifiers
+	{ KEYWORD_IF, "if" },
+	{ KEYWORD_ELSE, "else" },
+	{ KEYWORD_DO, "do" },
+	{ KEYWORD_WHILE, "while" },
+	{ KEYWORD_FOR, "for" },
+
+	// Type declarations
+	{ KEYWORD_TYPEDEF, "typedef" },
+	{ KEYWORD_STRUCT, "struct" },
+	{ KEYWORD_ENUM, "enum" },
+	{ KEYWORD_UNION, "union" },
+
+	// Flow controls
+
+	{ KEYWORD_RETURN, "return" },
+	{ KEYWORD_GOTO, "goto" },
+	{ KEYWORD_SWITCH, "switch" },
+	{ KEYWORD_CASE, "case" },
+	{ KEYWORD_BREAK, "break" },
+	{ KEYWORD_CONTINUE, "continue" },
+};
+
+
+enum KEYWORD keyword_get_from_string(const char* str)
+{
+	const int keywords_table_size = sizeof(KEYWORD_STRING_PAIRING_TABLE) / sizeof(struct keyword_string_pairing);
+	for (int pairing_index = 0; pairing_index < keywords_table_size; pairing_index++)
+	{
+		if (strcmp(str, KEYWORD_STRING_PAIRING_TABLE[pairing_index].str) == 0)
+		{
+			return KEYWORD_STRING_PAIRING_TABLE[pairing_index].kwd;
+		}
+	}
+
+	return KEYWORD_NONE;
+}
+
+const char* keyword_get_string(enum KEYWORD kwd)
+{
+	const int keywords_table_size = sizeof(KEYWORD_STRING_PAIRING_TABLE) / sizeof(char*);
+	int pairing_index = 0;
+	for (; pairing_index < keywords_table_size; pairing_index++)
+	{
+		if (kwd == KEYWORD_STRING_PAIRING_TABLE[pairing_index].kwd)
+		{
+			break;
+		}
+	}
+
+	assert(pairing_index != keywords_table_size);
+	return KEYWORD_STRING_PAIRING_TABLE[pairing_index].str;
+}

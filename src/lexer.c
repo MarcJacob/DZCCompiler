@@ -31,20 +31,6 @@ static char nextc(struct lex_process* lexer)
 	return lexer->functions.next_char(lexer);
 }
 
-int get_keyword_index(const char* keyword)
-{
-	const int keywords_table_size = sizeof(KEYWORDS_STR_TABLE) / sizeof(char*);
-	for (int keyword_index = 0; keyword_index < keywords_table_size; keyword_index++)
-	{
-		if (strcmp(keyword, KEYWORDS_STR_TABLE[keyword_index]) == 0)
-		{
-			return keyword_index;
-		}
-	}
-
-	return -1;
-}
-
 static inline void lexer_error(struct lex_process* lexer, int lexer_error, const char* msg, ...)
 {
 	va_list args;
@@ -314,6 +300,11 @@ struct token* read_token_symbol(struct lex_process* lexer)
 		break; // Char isn't a symbol, leave new_token at NULL.
 	}
 
+	if (new_token == NULL)
+	{
+		// If no valid symbol token was created, push the character back in.
+		pushc(lexer, c);
+	}
 	return new_token;
 }
 
@@ -355,11 +346,11 @@ struct token* read_token_keyword(struct lex_process* lexer, struct string_ascii*
 	struct token* new_token = calloc(1, sizeof(struct token));
 	if (!new_token) abort();
 
-	int keyword_index = get_keyword_index(word->str);
-	if (keyword_index >= 0)
+	enum KEYWORD keyword = keyword_get_from_string(word->str);
+	if (keyword != KEYWORD_NONE)
 	{
 		new_token->type = TOKEN_TYPE_KEYWORD;
-		new_token->value.keyword_index = keyword_index;
+		new_token->value.keywordval = keyword;
 		new_token->position = lexer->position;
 
 		return new_token;
@@ -520,7 +511,7 @@ int lex(struct lex_process* lexer)
 			printf("SYMBOL\t'%c'\n", lex_token->value.cval);
 			break;
 		case TOKEN_TYPE_KEYWORD:
-			printf("KEYWORD\t%d ('%s')\n", lex_token->value.keyword_index, KEYWORDS_STR_TABLE[lex_token->value.keyword_index]);
+			printf("KEYWORD\t%d ('%s')\n", lex_token->value.keywordval, keyword_get_string(lex_token->value.keywordval));
 			break;
 		case TOKEN_TYPE_IDENTIFIER:
 			printf("IDENT\t%s\n", lex_token->value.strval.str);

@@ -16,7 +16,7 @@ int calculate_expression_node_result(struct parsing_node* root_exp)
 		left = calculate_expression_node_result(root_exp->value.exp.left);
 		break;
 	case NODE_TYPE_NUMBER:
-		left = root_exp->value.exp.left->value.llnum;
+		left = (int)root_exp->value.exp.left->value.llnum;
 		break;
 	default:
 		left = 0;
@@ -28,7 +28,7 @@ int calculate_expression_node_result(struct parsing_node* root_exp)
 		right = calculate_expression_node_result(root_exp->value.exp.right);
 		break;
 	case NODE_TYPE_NUMBER:
-		right = root_exp->value.exp.right->value.llnum;
+		right = (int)root_exp->value.exp.right->value.llnum;
 		break;
 	default:
 		right = 0;
@@ -47,7 +47,7 @@ int calculate_expression_node_result(struct parsing_node* root_exp)
 		return left / right;
 	case OPERATOR_MOD:
 		if (right == 0) return (~0);
-		return left % 0;
+		return left % right;
 	case OPERATOR_POW:
 		if (right == 0) return 1;
 		for (int i = 0; i < right; i++)
@@ -60,7 +60,7 @@ int calculate_expression_node_result(struct parsing_node* root_exp)
 
 void print_node(struct parsing_node* node, int indentation)
 {
-	const char indents[NODE_PRINT_MAX_INDENTATION];
+	char indents[NODE_PRINT_MAX_INDENTATION];
 
 	if (indentation >= NODE_PRINT_MAX_INDENTATION)
 	{

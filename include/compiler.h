@@ -69,8 +69,8 @@ union token_value
 	void* any;
 	ui64 llnum;
 	ui32 inum;
-	ui16 keyword_index; // Index into keyword table.
 	enum OPERATOR_TYPE opval;
+	enum KEYWORD keywordval;
 	char cval;
 };
 
@@ -93,50 +93,64 @@ struct token
 	byte whitespace_present;
 };
 
-// Global lookup table to determine whether a string is a keyword, and its index.
-static const char* KEYWORDS_STR_TABLE[] =
+// Enumerated keyword values supported by the compiler.
+enum KEYWORD
 {
-	// Primitive types
-	"char"
-	"short",
-	"int",
-	"long"
-	"float",
-	"double",
+	KEYWORD_NONE = 0,
 
-	// Identifier modifiers
-	"const",
-	"unsigned",
-	"volatile",
-	"static",
-	"extern",
+	KEYWORD_TYPES_START,
+	KEYWORD_TYPE_CHAR = KEYWORD_TYPES_START,
+	KEYWORD_TYPE_SHORT,
+	KEYWORD_TYPE_INT,
+	KEYWORD_TYPE_LONG,
+	KEYWORD_TYPE_FLOAT,
+	KEYWORD_TYPE_DOUBLE,
+	KEYWORD_TYPES_END = KEYWORD_TYPE_DOUBLE,
 
-	// Special operations
-	"return",
-	"break",
-	"continue",
-	"sizeof",
+	KEYWORD_IDENTIFIER_MODIFIERS_START,
+	KEYWORD_CONST = KEYWORD_IDENTIFIER_MODIFIERS_START,
+	KEYWORD_UNSIGNED,
+	KEYWORD_VOLATILE,
+	KEYWORD_STATIC,
+	KEYWORD_EXTERN,
+	KEYWORD_IDENTIFIER_MODIFIERS_END = KEYWORD_EXTERN,
 
-	// Scope modifiers (loops and conditionals)
-	"if",
-	"else",
-	"do",
-	"while",
-	"for",
+	KEYWORD_SPECIAL_OPERATORS_START,
+	KEYWORD_SIZEOF,
+	KEYWORD_SPECIAL_OPERATORS_END = KEYWORD_SIZEOF,
 
-	// Type declarations
-	"typedef",
-	"struct",
-	"enum",
-	"union",
+	KEYWORD_SCOPE_MODIFIERS_START,
+	KEYWORD_IF = KEYWORD_SCOPE_MODIFIERS_START,
+	KEYWORD_ELSE,
+	KEYWORD_DO,
+	KEYWORD_WHILE,
+	KEYWORD_FOR,
+	KEYWORD_SCOPE_MODIFIERS_END = KEYWORD_FOR,
 
-	// Misc
-	"case",
-	"goto",
+	KEYWORD_TYPE_DECLARATIONS_START,
+	KEYWORD_TYPEDEF = KEYWORD_TYPE_DECLARATIONS_START,
+	KEYWORD_STRUCT,
+	KEYWORD_ENUM,
+	KEYWORD_UNION,
+	KEYWORD_TYPE_DECLARATIONS_END = KEYWORD_UNION,
+
+	KEYWORD_FLOW_CONTROLS_START,
+	KEYWORD_RETURN = KEYWORD_FLOW_CONTROLS_START,
+	KEYWORD_GOTO,
+	KEYWORD_SWITCH,
+	KEYWORD_CASE,
+	KEYWORD_BREAK,
+	KEYWORD_CONTINUE,
+	KEYWORD_FLOW_CONTROLS_END = KEYWORD_CONTINUE,
+
+	KEYWORD_COUNT,
 };
 
-// Returns the keyword index of the passed in keyword string. Returns -1 if keyword wasn't found.
-int get_keyword_index(const char* keyword);
+// Returns the keyword enumeration value of the passed in keyword string. Returns -1 if keyword wasn't found.
+enum KEYWORD keyword_get_from_string(const char* keyword);
+
+// Returns the null-terminated ASCII string associated with the passed keyword. Asserts if not found, as every keyword should be associated with a string !
+const char* keyword_get_string(enum KEYWORD kwd);
 
 // ------- COMPILER --------------
 

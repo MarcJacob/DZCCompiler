@@ -322,6 +322,20 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 	return 0;
 }
 
+int parse_identifier(struct tree_parsing_context* tree, struct parser_token** start_token)
+{
+	// Temp: Advance by one token and return.
+	*start_token = (*start_token)->next;
+	return 0;
+}
+
+int parse_keyword(struct tree_parsing_context* tree, struct parser_token** start_token)
+{
+	// Temp: Advance by one token and return.
+	*start_token = (*start_token)->next;
+	return 0;
+}
+
 // Parses tokens starting from the provided token into a node tree, and returns the root node of that tree.
 // Advances the provided token_list to after all the tokens used by the tree parsed by this run of the function.
 // Returns -1 on error, 0 on successful parse, 1 if token list is empty.
@@ -350,6 +364,12 @@ static int parse_next_tree(struct compile_process* compiler, struct parser_token
 			res = parse_expressionable(&tree, &parser_token);
 			if (res == 0) res = 1;
 			break;
+		case TOKEN_TYPE_IDENTIFIER:
+			res = parse_identifier(&tree, &parser_token);
+			break;
+		case TOKEN_TYPE_KEYWORD:
+			res = parse_keyword(&tree, &parser_token);
+			break;
 		case TOKEN_TYPE_NEWLINE:
 			// Skip newlines entirely.
 			res = 0;
@@ -375,6 +395,7 @@ int parse(struct compile_process* compiler)
 {
 	struct vector* token_vector = &compiler->token_vec;
 
+	// Perform a pre-pass over the entire token collection, filtering out the types of tokens that are not supported / ignored by the parser.
 	struct parsing_node* node = NULL;
 	struct parser_token_list token_list = build_parser_token_list(compiler);
 	
@@ -404,7 +425,6 @@ int parse(struct compile_process* compiler)
 		compiler_error(compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Unknown Parser error.");
 		return PARSER_GENERAL_ERROR;
 	}
-	
 
 	// Report on all parsed tokens.
 	printf("Parsed node trees:\n\n");
