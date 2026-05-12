@@ -322,17 +322,165 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 	return 0;
 }
 
-int parse_identifier(struct tree_parsing_context* tree, struct parser_token** start_token)
+static int parse_identifier(struct tree_parsing_context* tree, struct parser_token** start_token)
 {
 	// Temp: Advance by one token and return.
 	*start_token = (*start_token)->next;
 	return 0;
 }
 
+// Parse the next handful of tokens into a datatype, a structure describing a datatype we are interested in for declaring a variable, structure,
+// union or function.
+static struct datatype parse_datatype(struct tree_parsing_context* tree, struct parser_token** token_list)
+{
+	struct datatype type = {0};
+	type.flags |= DATATYPE_IS_SIGNED;
+
+	// Parse prefixed modifiers, the type name itself, then postfixed modifiers.
+	struct parser_token* token = *token_list;
+	
+	// Prefixed modifiers
+	while (token != NULL && token->token->type == TOKEN_TYPE_KEYWORD
+		&& keyword_is_variable_modifier(token->token->type))
+	{
+		// Parse modifier token -> datatype flags.
+		switch (token->token->value.keywordval)
+		{
+		case KEYWORD_SIGNED:
+			type.flags |= DATATYPE_IS_SIGNED;
+			break;
+		case KEYWORD_UNSIGNED:
+			type.flags &= ~DATATYPE_IS_SIGNED;
+			break;
+		case KEYWORD_CONST:
+			type.flags |= DATATYPE_IS_CONST;
+			break;
+		case KEYWORD_STATIC:
+			type.flags |= DATATYPE_IS_STATIC;
+			break;
+		case KEYWORD_EXTERN:
+			type.flags |= DATATYPE_IS_EXTERN;
+			break;
+		case KEYWORD_VOLATILE:
+			type.flags |= DATATYPE_IS_VOLATILE;
+			break;
+		default:
+			tree->compiler->position = token->token->position;
+			compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_FATAL_ERROR, "Unhandled variable modifier keyword when parsing data type.");
+			return type;
+		}
+
+		token = token->next;
+	}
+
+	if (token == NULL)
+	{
+		tree->compiler->position = (*token_list)->token->position;
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Ran out of tokens parsing data type.");
+		return type;
+	}
+
+	// Datatype string
+	if (token->token->type == TOKEN_TYPE_KEYWORD && keyword_is_datatype(token->token->value.keywordval))
+	{
+		// Parse datatype type from one of the primitive types.
+		type.type = keyword_to_data_type(token->token->value.keywordval);
+
+		if (type.type == DATA_TYPE_STRUCT || type.type == DATA_TYPE_UNION)
+		{
+			// Handle structured type - an identifier needs to be parsed.
+			token = token->next;
+			if (token->token->type != TOKEN_TYPE_IDENTIFIER)
+			{
+				// Next token isn't an identifier, meaning the only possibility is the declaration of an anonymous structured type.
+				type.flags |= DATATYPE_IS_ANONYMOUS_STRUCT;
+
+				// Generate random name for anonymous structured type
+				if (type.type == DATA_TYPE_STRUCT)
+				{
+					static size_t ANONYMOUS_STRUCT_COUNTER = 0;
+					sprintf_s(type.type_string, DATATYPE_MAX_STRING_LEN, "ANON_STRUCT_%d", ANONYMOUS_STRUCT_COUNTER++);
+				}
+				else
+				{
+					static size_t ANONYMOUS_UNION_COUNTER = 0;
+					sprintf_s(type.type_string, DATATYPE_MAX_STRING_LEN, "ANON_UNION_%d", ANONYMOUS_UNION_COUNTER++);
+				}
+			}
+			else
+			{
+				// Parse identifier, use its string value as the datatype's string.
+				strcpy_s(type.type_string, token->token->value.strval.length, token->token->value.strval.str);
+			}
+		}
+		else
+		{
+			// Primitive types - copy the primitive type keyword string into datatype.
+			strcpy_s(type.type_string, DATATYPE_MAX_STRING_LEN, keyword_get_string(token->token->value.keywordval));
+		}
+
+		// Move to next token.
+		token = token->next;
+	}
+	/*else if (token->token->type == TOKEN_TYPE_IDENTIFIER)
+	{
+		// TODO: Support user-defined types / typedefs.
+	}*/
+	else
+	{
+		tree->compiler->position = token->token->position;
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Invalid token type %d while parsing data type.", token->token->type);
+		return type;
+	}	
+
+	// Determine pointer depth by consuming all following POINTER operator tokens.
+	while (token != NULL 
+		&& token->token->type == TOKEN_TYPE_OPERATOR 
+		&& token->token->value.opval == OPERATOR_POINTER)
+	{
+		type.pointer_depth++;
+		token = token->next;
+	}
+
+	// Determine type size.
+	if (type.pointer_depth > 0)
+	{
+		type.size = DATATYPE_POINTER_SIZE;
+	}
+	else if (type.type != DATA_TYPE_STRUCT && type.type != DATA_TYPE_UNION)
+	{
+		type.size = data_type_primitive_get_size(type.type);
+	}
+	else
+	{
+		// TODO: Calculate struct / union size by parsing following tokens.
+		// ... or do it later.
+	}
+
+	// Once parsing process is done successfully, advance provided token_list pointer to point to the next available parser_token.
+	*token_list = &token;
+	return type;
+}
+
 int parse_keyword(struct tree_parsing_context* tree, struct parser_token** start_token)
 {
-	// Temp: Advance by one token and return.
-	*start_token = (*start_token)->next;
+	struct parser_token* token = *start_token;
+	if (token == NULL) return -1;
+
+	enum KEYWORD token_keyword = token->token->value.keywordval;
+	if (keyword_is_variable_modifier(token_keyword) || keyword_is_datatype(token_keyword))
+	{
+		// Parsing a variable, a function, a struct, an enum or a union.
+
+		// In all cases, we start with the parsing of a full data type (type of variable, type of structure / union,
+		// return type of function).
+		struct datatype type = parse_datatype(tree, &token, &type);
+		if (compiler_has_error(tree->compiler))
+		{
+			return -1;
+		}
+	}
+
 	return 0;
 }
 

@@ -24,6 +24,8 @@ enum OPERATOR_TYPE
 	OPERATOR_MOD,
 	OPERATOR_POW,
 
+	OPERATOR_POINTER = OPERATOR_MULT,
+
 	OPERATOR_TYPE_COUNT,
 };
 
@@ -99,7 +101,8 @@ enum KEYWORD
 	KEYWORD_NONE = 0,
 
 	KEYWORD_TYPES_START,
-	KEYWORD_TYPE_CHAR = KEYWORD_TYPES_START,
+	KEYWORD_TYPE_VOID = KEYWORD_TYPES_START,
+	KEYWORD_TYPE_CHAR,
 	KEYWORD_TYPE_SHORT,
 	KEYWORD_TYPE_INT,
 	KEYWORD_TYPE_LONG,
@@ -110,6 +113,7 @@ enum KEYWORD
 	KEYWORD_IDENTIFIER_MODIFIERS_START,
 	KEYWORD_CONST = KEYWORD_IDENTIFIER_MODIFIERS_START,
 	KEYWORD_UNSIGNED,
+	KEYWORD_SIGNED,
 	KEYWORD_VOLATILE,
 	KEYWORD_STATIC,
 	KEYWORD_EXTERN,
@@ -151,6 +155,112 @@ enum KEYWORD keyword_get_from_string(const char* keyword);
 
 // Returns the null-terminated ASCII string associated with the passed keyword. Asserts if not found, as every keyword should be associated with a string !
 const char* keyword_get_string(enum KEYWORD kwd);
+
+inline int keyword_is_variable_modifier(enum KEYWORD kwd)
+{
+	return kwd >= KEYWORD_IDENTIFIER_MODIFIERS_START && kwd <= KEYWORD_IDENTIFIER_MODIFIERS_END;
+}
+
+inline int keyword_is_primitive_type(enum KEYWORD kwd)
+{
+	return kwd >= KEYWORD_TYPES_START && kwd <= KEYWORD_TYPES_END;
+}
+
+inline int keyword_is_datatype(enum KEYWORD kwd)
+{
+	return keyword_is_primitive_type(kwd)
+		|| kwd == KEYWORD_STRUCT || kwd == KEYWORD_UNION || kwd == KEYWORD_ENUM; // struct, union and enum can also be used as normal types beyond declaration.
+}
+
+// Possible values for the datatype flags bitmask.
+enum
+{
+	DATATYPE_IS_SIGNED =			1 << 0,
+	DATATYPE_IS_STATIC =			1 << 1,
+	DATATYPE_IS_CONST =				1 << 2,
+	DATATYPE_IS_POINTER =			1 << 3,
+	DATATYPE_IS_ARRAY =				1 << 4,
+	DATATYPE_IS_EXTERN =			1 << 5,
+	DATATYPE_IS_ANONYMOUS_STRUCT =	1 << 6,
+	DATATYPE_IS_LITERAL =			1 << 7,
+	DATATYPE_IS_VOLATILE =			1 << 8,
+};
+
+// "Native" data types supported by the compiler.
+enum
+{
+	DATA_TYPE_UNKNOWN,
+	DATA_TYPE_VOID,
+	DATA_TYPE_CHAR,
+	DATA_TYPE_SHORT,
+	DATA_TYPE_INT,
+	DATA_TYPE_LONG,
+	DATA_TYPE_FLOAT,
+	DATA_TYPE_DOUBLE,
+	DATA_TYPE_STRUCT,
+	DATA_TYPE_UNION,
+};
+
+size_t data_type_primitive_get_size(int primitive_datatype);
+
+int keyword_to_data_type(enum KEYWORD keyword)
+{
+	assert(keyword_is_datatype(keyword));
+	switch (keyword)
+	{
+	case KEYWORD_TYPE_VOID:
+		return DATA_TYPE_VOID;
+	case KEYWORD_TYPE_CHAR:
+		return DATA_TYPE_CHAR;
+	case KEYWORD_TYPE_SHORT:
+		return DATA_TYPE_SHORT;
+	case KEYWORD_TYPE_INT:
+		return DATA_TYPE_INT;
+	case KEYWORD_TYPE_LONG:
+		return DATA_TYPE_LONG;
+	case KEYWORD_TYPE_FLOAT:
+		return DATA_TYPE_FLOAT;
+	case KEYWORD_TYPE_DOUBLE:
+		return DATA_TYPE_DOUBLE;
+	case KEYWORD_STRUCT:
+		return DATA_TYPE_STRUCT;
+	case KEYWORD_UNION:
+		return DATA_TYPE_UNION;
+	}
+}
+
+#define DATATYPE_MAX_STRING_LEN (32)
+
+// TODO: Use a previously-determined platform-agnostic "Architecture size" define.
+#if _WIN64
+#define DATATYPE_POINTER_SIZE (8)
+#else
+#define DATATYPE_POINTER_SIZE (4)
+#endif
+
+// Represents a type known by the compiler.
+struct datatype
+{
+	// Flags bitmask value.
+	int flags;
+
+	// Data Type enumeration value.
+	int type;
+
+	// Zero-terminated ASCII name of a user-declared type.
+	const char type_string[DATATYPE_MAX_STRING_LEN];
+
+	// Size in bytes of this type.
+	size_t size;
+
+	// Depth of dereferencing possible with this type.
+	int pointer_depth;
+
+	// If this is a complex / structured type, this links to the node used to declare it.
+	// The node will either be of type STRUCT or UNION.
+	struct parsing_node* declaration_node;
+
+};
 
 // ------- COMPILER --------------
 
@@ -280,8 +390,9 @@ void lex_process_destroy(struct lex_process* lexer);
 enum
 {
 	PARSER_ALL_OK,
+	PARSER_FATAL_ERROR, // Parser internal error due to incomplete / faulty parser code, or fatal platform function failure.
 	PARSER_NO_TOKENS, // Parser could not find parseable tokens in the compiler process.
-	PARSER_GENERAL_ERROR,
+	PARSER_GENERAL_ERROR, // General error usually stemming from faulty input.
 };
 
 // Parser node types.

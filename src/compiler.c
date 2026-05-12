@@ -218,6 +218,7 @@ struct keyword_string_pairing
 static const struct keyword_string_pairing KEYWORD_STRING_PAIRING_TABLE[] =
 {
 	// Primitive types
+	{ KEYWORD_TYPE_VOID, "void" },
 	{ KEYWORD_TYPE_CHAR, "char" },
 	{ KEYWORD_TYPE_SHORT, "short" },
 	{ KEYWORD_TYPE_INT, "int"},
@@ -228,6 +229,7 @@ static const struct keyword_string_pairing KEYWORD_STRING_PAIRING_TABLE[] =
 	// Identifier modifiers
 	{ KEYWORD_CONST, "const" },
 	{ KEYWORD_UNSIGNED, "unsigned" },
+	{ KEYWORD_SIGNED, "signed" },
 	{ KEYWORD_VOLATILE, "volatile" },
 	{ KEYWORD_STATIC, "static" },
 	{ KEYWORD_EXTERN, "extern" },
@@ -287,4 +289,26 @@ const char* keyword_get_string(enum KEYWORD kwd)
 
 	assert(pairing_index != keywords_table_size);
 	return KEYWORD_STRING_PAIRING_TABLE[pairing_index].str;
+}
+
+size_t data_type_primitive_get_size(int primitive_datatype)
+{
+	assert(primitive_datatype >= DATA_TYPE_VOID && primitive_datatype <= DATA_TYPE_DOUBLE);
+	switch (primitive_datatype)
+	{
+	case DATA_TYPE_VOID:
+		return 0;
+	case DATA_TYPE_CHAR:
+		return 1;
+	case DATA_TYPE_SHORT:
+		return 2;
+	case DATA_TYPE_INT:
+		return 4;
+	case DATA_TYPE_LONG:
+		return 8;
+	case DATA_TYPE_FLOAT:
+		return 4;
+	case DATA_TYPE_DOUBLE:
+		return 8;
+	}
 }
