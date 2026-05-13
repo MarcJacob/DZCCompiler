@@ -29,6 +29,7 @@ static struct parser_token_list build_parser_token_list(struct compile_process* 
 		case TOKEN_TYPE_STRING:
 		case TOKEN_TYPE_OPERATOR:
 		case TOKEN_TYPE_SYMBOL:
+		case TOKEN_TYPE_KEYWORD:
 		case TOKEN_TYPE_NEWLINE: // Temporary, until we introduce end of statement tokens.
 			new_item = calloc(1, sizeof(struct parser_token));
 			assert(new_item != NULL);
@@ -338,10 +339,16 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 
 	// Parse prefixed modifiers, the type name itself, then postfixed modifiers.
 	struct parser_token* token = *token_list;
-	
+	if (token == NULL)
+	{
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_NO_TOKENS, "No tokens to parse into datatype.");
+		return type;
+	}
+
+
 	// Prefixed modifiers
 	while (token != NULL && token->token->type == TOKEN_TYPE_KEYWORD
-		&& keyword_is_variable_modifier(token->token->type))
+		&& keyword_is_variable_modifier(token->token->value.keywordval))
 	{
 		// Parse modifier token -> datatype flags.
 		switch (token->token->value.keywordval)
@@ -399,12 +406,12 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 				if (type.type == DATA_TYPE_STRUCT)
 				{
 					static size_t ANONYMOUS_STRUCT_COUNTER = 0;
-					sprintf_s(type.type_string, DATATYPE_MAX_STRING_LEN, "ANON_STRUCT_%d", ANONYMOUS_STRUCT_COUNTER++);
+					sprintf_s(type.type_string, DATATYPE_MAX_STRING_LEN, "ANON_STRUCT_%lld", ANONYMOUS_STRUCT_COUNTER++);
 				}
 				else
 				{
 					static size_t ANONYMOUS_UNION_COUNTER = 0;
-					sprintf_s(type.type_string, DATATYPE_MAX_STRING_LEN, "ANON_UNION_%d", ANONYMOUS_UNION_COUNTER++);
+					sprintf_s(type.type_string, DATATYPE_MAX_STRING_LEN, "ANON_UNION_%lld", ANONYMOUS_UNION_COUNTER++);
 				}
 			}
 			else
@@ -422,10 +429,11 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 		// Move to next token.
 		token = token->next;
 	}
-	/*else if (token->token->type == TOKEN_TYPE_IDENTIFIER)
+	else if (token->token->type == TOKEN_TYPE_IDENTIFIER)
 	{
 		// TODO: Support user-defined types / typedefs.
-	}*/
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Support for user-defined types is not implemented yet.");
+	}
 	else
 	{
 		tree->compiler->position = token->token->position;
@@ -455,10 +463,14 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 	{
 		// TODO: Calculate struct / union size by parsing following tokens.
 		// ... or do it later.
+
+		tree->compiler->position = (*token_list)->token->position;
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Structured types support is not implemented yet.");
+		return type;
 	}
 
 	// Once parsing process is done successfully, advance provided token_list pointer to point to the next available parser_token.
-	*token_list = &token;
+	*token_list = token;
 	return type;
 }
 
@@ -474,14 +486,32 @@ int parse_keyword(struct tree_parsing_context* tree, struct parser_token** start
 
 		// In all cases, we start with the parsing of a full data type (type of variable, type of structure / union,
 		// return type of function).
-		struct datatype type = parse_datatype(tree, &token, &type);
+		struct datatype type = parse_datatype(tree, &token);
 		if (compiler_has_error(tree->compiler))
 		{
 			return -1;
 		}
 	}
 
+	*start_token = token;
+
 	return 0;
+}
+
+int parse_global_keyword(struct tree_parsing_context* tree, struct parser_token** token_list)
+{
+	int parse_res = parse_keyword(tree, token_list);
+	if (parse_res != 0)
+	{
+		return parse_res;
+	}
+
+	// Pop most recently built node which should correspond to a global keyword / symbol (in the C sense) we want to keep track of.
+	struct parsing_node* global_node = NULL;
+	if (!node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, global_node))
+	{
+		return -1;
+	}
 }
 
 // Parses tokens starting from the provided token into a node tree, and returns the root node of that tree.
@@ -500,23 +530,21 @@ static int parse_next_tree(struct compile_process* compiler, struct parser_token
 	}
 
 	// Parse the tree's root starting from the first token until we're out of tokens.
-	// TODO: Currently we only know how to parse expressionables without more context. Later expressionables will not be able to be valid tree roots,
-	// and instead of continuously parsing tokens we'll instead look for valid roots and stop once the recursive parsing process for that node is done.
 	while (parser_token != NULL)
 	{
 		int res = -1;	
 		switch (parser_token->token->type)
 		{
+			// Expression tree. To be removed later - free-standing expressions in C do not make sense.
 		case TOKEN_TYPE_NUMBER:
 		case TOKEN_TYPE_OPERATOR:
+		case TOKEN_TYPE_IDENTIFIER:
 			res = parse_expressionable(&tree, &parser_token);
 			if (res == 0) res = 1;
 			break;
-		case TOKEN_TYPE_IDENTIFIER:
-			res = parse_identifier(&tree, &parser_token);
-			break;
+			// Keyword tree start - static symbol declaration.
 		case TOKEN_TYPE_KEYWORD:
-			res = parse_keyword(&tree, &parser_token);
+			res = parse_global_keyword(&tree, &parser_token);
 			break;
 		case TOKEN_TYPE_NEWLINE:
 			// Skip newlines entirely.
@@ -527,7 +555,7 @@ static int parse_next_tree(struct compile_process* compiler, struct parser_token
 
 		if (res < 0)
 		{
-			compiler->position = parser_token->token->position;
+			compiler->position = (*token_list)->token->position;
 			compiler_error(compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Failed to parse new node tree.");
 			return -1;
 		}

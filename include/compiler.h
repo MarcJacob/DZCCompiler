@@ -187,7 +187,7 @@ enum
 };
 
 // "Native" data types supported by the compiler.
-enum
+enum data_type
 {
 	DATA_TYPE_UNKNOWN,
 	DATA_TYPE_VOID,
@@ -203,7 +203,7 @@ enum
 
 size_t data_type_primitive_get_size(int primitive_datatype);
 
-int keyword_to_data_type(enum KEYWORD keyword)
+inline int keyword_to_data_type(enum KEYWORD keyword)
 {
 	assert(keyword_is_datatype(keyword));
 	switch (keyword)
@@ -227,6 +227,8 @@ int keyword_to_data_type(enum KEYWORD keyword)
 	case KEYWORD_UNION:
 		return DATA_TYPE_UNION;
 	}
+
+	return DATA_TYPE_UNKNOWN;
 }
 
 #define DATATYPE_MAX_STRING_LEN (32)
@@ -245,10 +247,10 @@ struct datatype
 	int flags;
 
 	// Data Type enumeration value.
-	int type;
+	enum data_type type;
 
 	// Zero-terminated ASCII name of a user-declared type.
-	const char type_string[DATATYPE_MAX_STRING_LEN];
+	char type_string[DATATYPE_MAX_STRING_LEN];
 
 	// Size in bytes of this type.
 	size_t size;
