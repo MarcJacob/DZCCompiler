@@ -16,7 +16,6 @@ enum OPERATOR_TYPE
 	// None operator, representing an absence of operator.
 	OPERATOR_NONE = 0,
 
-	// Mathematical operations, acting over left and right numerical operands.
 	OPERATOR_ADD,
 	OPERATOR_SUB,
 	OPERATOR_MULT,
@@ -25,6 +24,7 @@ enum OPERATOR_TYPE
 	OPERATOR_MOD,
 	OPERATOR_POW,
 
+	OPERATOR_ASSIGNMENT,
 
 	OPERATOR_TYPE_COUNT,
 };
@@ -81,9 +81,6 @@ struct token
 {
 	union token_value value;
 	struct file_position position;
-
-	// Pointer to start of closest opening parenthesis or brackets.
-	const char* enclosure;
 
 	// Type of token, corresponds to token_type enumeration.
 	int type;
@@ -519,6 +516,13 @@ struct parsing_node
 			enum OPERATOR_TYPE op;
 			int parenthesis_level;
 		} exp;
+
+		struct parsing_node_var_value
+		{
+			struct datatype type; // Variable data type.
+			const char* name;
+			struct parsing_node* value_node; // Node used to determine initial value of variable.
+		} var;
 
 		char cval;
 		struct string_ascii sval;

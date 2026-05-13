@@ -67,6 +67,19 @@ inline struct string_ascii string_create_ascii(const char* c_str)
 	return new_string;
 }
 
+// Creates a copy of the string's internal null-terminated string in memory and returns a pointer to it.
+inline const char* string_copy_raw_ascii(struct string_ascii* str)
+{
+	assert(str != NULL);
+
+	const char* copy = malloc(str->length + 1);
+	assert(copy != NULL);
+
+	strncpy_s(copy, str->length + 1, str->str, str->length + 1);
+
+	return copy;
+}
+
 inline void string_free_ascii(struct string_ascii* str)
 {
 	if (str->str)

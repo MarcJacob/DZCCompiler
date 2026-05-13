@@ -88,9 +88,12 @@ static struct op_string_pairing OP_STRING_PAIRING_TABLE[] =
 	{ OPERATOR_ADD,		"+" },
 	{ OPERATOR_SUB,		"-" },
 	{ OPERATOR_MULT,	"*" },
+	{ OPERATOR_POINTER, "*" },
 	{ OPERATOR_DIV,		"/" },
 	{ OPERATOR_MOD,		"%" },
 	{ OPERATOR_POW,		"^>" },
+
+	{ OPERATOR_ASSIGNMENT, "="},
 };
 
 enum OPERATOR_TYPE op_get_from_string(const char* op_str, int* out_strlen)

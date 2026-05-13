@@ -3,6 +3,10 @@
 // Include symbol resolution code implementation as a "sub-module" of sorts.
 #include "symbol_resolution.c"
 
+// TODO: Error handling is atrocious in this file. I got lazy. Make a proper parser_error function that takes a token as parameter
+// for easier error handling and so I don't have to keep updating the compiler's current position "just in time" for the error message to show
+// the correct position.
+
 struct parser_token_list
 {
 	// A parser token wraps a token with a pointer to a "next" token, collectively forming a chain of parsable tokens
@@ -419,11 +423,13 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 		}
 
 		// Move to next token.
+		tree->compiler->position = token->token->position;
 		token = token->next;
 	}
 	else if (token->token->type == TOKEN_TYPE_IDENTIFIER)
 	{
 		// TODO: Support user-defined types / typedefs.
+		tree->compiler->position = token->token->position;
 		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Support for user-defined types is not implemented yet.");
 	}
 	else
@@ -466,10 +472,61 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 	return type;
 }
 
+static struct parsing_node* parse_variable(struct tree_parsing_context* tree, struct parser_token** token_list, struct datatype* type)
+{
+	// TODO: Check for array brackets and handle arrays here.
+
+	struct parser_token* name_token = *token_list;
+
+	// Next token has to be a identifier.
+	if (name_token == NULL || name_token->token->type != TOKEN_TYPE_IDENTIFIER)
+	{
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Expected an identifier.");
+		return NULL;
+	}
+	
+	tree->compiler->position = name_token->token->position;
+
+	// The variable can be just a single declaration, or it can be a full initializer (declaring both the symbol and its initial value).
+	struct parser_token* next_token = name_token->next;
+	if (next_token == NULL)
+	{
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Unexpected EOF while parsing variable.");
+		return NULL;
+	}
+
+	// If next token is the assignment operator, "apply" the operator by parsing the next token as an expression which
+	// will be used as the symbol's initial value.
+	if (next_token->token->type == TOKEN_TYPE_OPERATOR 
+		&& next_token->token->value.opval == OPERATOR_ASSIGNMENT)
+	{
+		struct parser_token* exp_start_token = next_token->next;
+		if (!parse_expressionable(tree, &exp_start_token))
+		{
+			return NULL;
+		}
+
+		// Build variable node and push it.
+		{
+			struct parsing_node* variable_node = calloc(1, sizeof(struct parsing_node));
+			assert(variable_node != NULL);
+
+			variable_node->type = NODE_TYPE_VARIABLE;
+			variable_node->position = name_token->token->position;
+			variable_node->value.var.name = string_copy_raw_ascii(&name_token->token->value.strval);
+			variable_node->value.var.type = *type;
+
+			// Pop previously parsed Expression node as Value node of variable node.
+			node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, variable_node->value.var.value_node);
+			push_node_to_tree(tree, variable_node);
+		}
+	}
+}
+
 int parse_keyword(struct tree_parsing_context* tree, struct parser_token** start_token)
 {
 	struct parser_token* token = *start_token;
-	if (token == NULL) return -1;
+	if (token == NULL) return 0;
 
 	enum KEYWORD token_keyword = token->token->value.keywordval;
 	if (keyword_is_variable_modifier(token_keyword) || keyword_is_datatype(token_keyword))
@@ -478,15 +535,19 @@ int parse_keyword(struct tree_parsing_context* tree, struct parser_token** start
 
 		// In all cases, we start with the parsing of a full data type (type of variable, type of structure / union,
 		// return type of function).
+		struct parser_token* datatype_token = token;
 		struct datatype type = parse_datatype(tree, &token);
 		if (compiler_has_error(tree->compiler))
 		{
-			return -1;
+			return 0;
 		}
+
+		// We have the type, now determine if it's a variable, a function, or a structured type.
+		parse_variable(tree, &token, &type);
 	}
 
 	*start_token = token;
-	return 0;
+	return 1;
 }
 
 int parse_global_keyword(struct tree_parsing_context* tree, struct parser_token** token_list)
