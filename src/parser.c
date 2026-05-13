@@ -621,40 +621,8 @@ int parse(struct compile_process* compiler)
 	}
 
 	// Report on parsed scopes / symbols.
-	// TODO: Move the scope printing code to a function like the node's.
 	printf("\n\nParsed scopes:\n\n");
-	struct vector scope_stack = vector_create(struct scope*, 32);
-	int indent = -1;
-	for (int i = 0; i < compiler->scopes.size; i++)
-	{
-		struct scope* scope = vector_get_ptr(compiler->scopes, i);
-
-		// Determine parent, if any, by reading the last scope value and popping it until the current scope's parent is reached.
-		// This works because we know scopes are stored in the order they were created in, and parent scopes are always created before
-		// their child(ren).
-		struct scope* parent = vector_back_ptr(&scope_stack);
-		indent++;
-		while (parent != scope->parent)
-		{
-			vector_pop_item(&scope_stack);
-			parent = vector_back_ptr(&scope_stack);
-			indent--;
-		}
-
-		assert(i == 0 || parent != NULL);
-
-		if (parent)
-		{
-			printf("BEGIN SCOPE %d (PARENT = %d)\n\n", i, scope_stack.size - 1);
-		}
-		else
-		{
-			printf("BEGIN ROOT SCOPE\n\n");
-		}
-
-		printf("END SCOPE %d\n\n", i);
-		vector_push(scope_stack, scope);
-	}
+	compiler_print_scope_tree(compiler);
 
 	free_parser_token_list(&token_list);
 	return PARSER_ALL_OK;

@@ -379,7 +379,9 @@ inline int compiler_has_error(struct compile_process* compiler) { return compile
 // If parent is NULL, will use Global Scope.
 struct scope* compiler_push_scope(struct compile_process* compiler, struct scope* parent);
 
-struct scope* scope_get_global(struct compile_process* compiler);
+struct scope* compiler_get_global_scope(struct compile_process* compiler);
+
+void compiler_print_scope_tree(struct compile_process* compiler);
 
 // Adds a new symbol (by copy) to the scope. Returns whether the symbol was successfuly pushed.
 // If not, the problem usually is that a symbol with the same name already exists in this scope.

@@ -316,17 +316,88 @@ size_t data_type_primitive_get_size(int primitive_datatype)
 struct scope* compiler_push_scope(struct compile_process* compiler, struct scope* parent)
 {
 	struct scope new_scope = {0};
-	new_scope.parent = parent;
+
+	if (parent == NULL)
+		new_scope.parent = compiler_get_global_scope(compiler);
+	else
+		new_scope.parent = parent;
+
 	new_scope.symbols = vector_create(struct compiled_symbol, 32);
 
 	vector_push(compiler->scopes, new_scope);
 	return vector_back_ptr(&compiler->scopes);
 }
 
-struct scope* scope_get_global(struct compile_process* compiler)
+struct scope* compiler_get_global_scope(struct compile_process* compiler)
 {
 	assert(compiler->scopes.size > 0);
 	return vector_get_ptr(compiler->scopes, 0);
+}
+
+void compiler_print_scope_tree(struct compile_process* compiler)
+{
+	struct vector scope_stack = vector_create(struct scope*, 32);
+	int indent = -1;
+
+	printf("BEGIN ROOT SCOPE\n");
+	for (int i = 0; i < compiler->scopes.size; i++)
+	{
+		struct scope* scope = vector_get_ptr(compiler->scopes, i);
+
+		// Determine parent, if any, by reading the last scope value and popping it until the current scope's parent is reached.
+		// This works because we know scopes are stored in the order they were created in, and parent scopes are always created before
+		// their child(ren).
+		indent++;
+		struct scope** parent = vector_back_ptr(&scope_stack);
+		while (parent != NULL && *parent != scope->parent)
+		{
+			vector_pop_item(&scope_stack);
+			indent--;
+			printf("%*sEND SCOPE %d", indent * 4, "", scope_stack.size);
+			parent = vector_back_ptr(&scope_stack);
+		}
+
+		assert(i == 0 || parent != NULL);
+
+		if (parent != NULL && *parent == compiler_get_global_scope(compiler))
+		{
+			printf("%*sBEGIN SCOPE %d (PARENT = ROOT)\n", indent * 4, "", i);
+		}
+		else if (parent != NULL)
+		{
+			printf("%*sBEGIN SCOPE %d (PARENT = %d)\n", indent * 4, "", i, scope_stack.size - 1);
+		}
+
+		// Print all symbols in the scope.
+		indent++;
+		for (int i = 0; i < scope->symbols.size; i++)
+		{
+			struct compiled_symbol* symbol = vector_get_ptr(scope->symbols, i);
+			switch (symbol->symbol_type)
+			{
+			case SYMBOL_TYPE_FUNC:
+				printf("%*sFUNCTION '%s'\n", indent * 4, "", symbol->symbol_name.str);
+				break;
+				// TODO: Handle other symbol types.
+			default:
+				printf("%*sSYMBOL '%s', UNKNOWN TYPE (%d)\n", indent * 4, "", symbol->symbol_name.str, symbol->symbol_type);
+				break;
+			}
+		}
+		indent--;
+		vector_push(scope_stack, scope);
+	}
+
+	// "End" the printing of all remaining scopes in the stack.
+	for (int i = 0; i < scope_stack.size; i++)
+	{
+		struct scope* scope = vector_get_val(scope_stack, i, struct scope*);
+		vector_pop_item(&scope_stack);
+		printf("%*sEND SCOPE %d\n", indent * 4, "", scope_stack.size);
+		indent--;
+	}
+
+	printf("END ROOT SCOPE\n");
 }
 
 int scope_push_symbol(struct scope* scope, struct compiled_symbol symbol)
