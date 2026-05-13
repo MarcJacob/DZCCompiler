@@ -6,6 +6,11 @@
 
 #include "ascii_string.h"
 
+#include "cprocess.c"
+#include "node.c"
+#include "compiler.c"
+#include "lexer.c"
+#include "parser.c"
 
 int main(int argc, char** argv)
 {
