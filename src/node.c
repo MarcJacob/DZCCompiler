@@ -55,6 +55,8 @@ int calculate_expression_node_result(struct parsing_node* root_exp)
 			left *= left;
 		}
 		return left;
+	default:
+		return 0;
 	}
 }
 

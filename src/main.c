@@ -4,6 +4,8 @@
 #include "compiler.h"
 #include "ascii_string.h"
 
+// Directly include major compiler step implementations.
+
 #include "cprocess.c"
 #include "node.c"
 #include "compiler.c"

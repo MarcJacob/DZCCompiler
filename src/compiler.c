@@ -310,6 +310,8 @@ size_t data_type_primitive_get_size(int primitive_datatype)
 		return 4;
 	case DATA_TYPE_DOUBLE:
 		return 8;
+	default:
+		return 0;
 	}
 }
 

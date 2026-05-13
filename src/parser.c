@@ -1,5 +1,8 @@
 #include "compiler.h"
 
+// Include symbol resolution code implementation as a "sub-module" of sorts.
+#include "symbol_resolution.c"
+
 struct parser_token_list
 {
 	// A parser token wraps a token with a pointer to a "next" token, collectively forming a chain of parsable tokens
@@ -267,7 +270,6 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 		return 0;
 	}
 
-
 	struct parser_token* parser_token = *start_token;
 	struct parsing_node* node = NULL;
 	int parse_res = 0;
@@ -335,7 +337,6 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_NO_TOKENS, "No tokens to parse into datatype.");
 		return type;
 	}
-
 
 	// Prefixed modifiers
 	while (token != NULL && token->token->type == TOKEN_TYPE_KEYWORD
@@ -485,7 +486,6 @@ int parse_keyword(struct tree_parsing_context* tree, struct parser_token** start
 	}
 
 	*start_token = token;
-
 	return 0;
 }
 
@@ -594,9 +594,7 @@ int parse(struct compile_process* compiler)
 	// Loop over the entire list of parseable tokens until the end is reached or parsing fails.
 	// token_list_item pointer will be "advanced" to the first token of the next potential tree.
 	int parse_res = 0;
-	while (token_list_item != NULL && (parse_res = parse_next_tree(compiler, &token_list_item)))
-	{
-	}
+	while (token_list_item != NULL && (parse_res = parse_next_tree(compiler, &token_list_item))) {}
 
 	// Handle error. Emit a generic error if none are currently emitted to the compiler but parsing failed.
 	if (!parse_res)
@@ -618,8 +616,11 @@ int parse(struct compile_process* compiler)
 		print_node(tree_root, 0);
 	}
 
+	// Perform symbols & scopes resolution.
+	generate_symbols(compiler);
+
 	// Report on parsed scopes / symbols.
-	printf("\n\nParsed scopes:\n\n");
+	printf("\n\nParsed scopes & symbols:\n\n");
 	compiler_print_scope_tree(compiler);
 
 	free_parser_token_list(&token_list);

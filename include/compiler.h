@@ -302,7 +302,7 @@ struct scope
 	struct vector symbols;
 };
 
-// ------- COMPILER --------------
+// ------- COMPILER -------------- Implemented in compiler.c and cprocess.c
 
 struct compile_process_input_file
 {
@@ -405,7 +405,7 @@ int compile_file(const char* filename, const char* out_filename, int flags, int*
 int lex(struct lex_process* lexer);
 int parse(struct compile_process* compiler);
 
-// ----------- LEXER -------------
+// ----------- LEXER ------------- Implemented in lexer.c
 
 struct lex_process;
 
@@ -447,7 +447,7 @@ struct lex_process
 struct lex_process* lex_process_create(struct compile_process* compiler, void* private_data);
 void lex_process_destroy(struct lex_process* lexer);
 
-// --------- PARSER -----------
+// --------- PARSER ----------- Implemented in parser.c
 
 // Parser stage error codes.
 enum
@@ -549,5 +549,9 @@ struct parsing_node* node_peek(struct vector* node_vec);
 // Populates out_popped if something was popped.
 // Used to construct more complex nodes from constituent nodes.
 int node_pop(struct vector* node_vec, struct vector* root_node_vec, struct parsing_node* out_popped);
+
+// Symbols resolution (part of the parsing process but implemented in symbol_resolution.c)
+
+int generate_symbols(struct compile_process* compiler);
 
 #endif // COMPILER_INCLUDED
