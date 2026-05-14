@@ -389,7 +389,7 @@ void compiler_print_scope_tree(struct compile_process* compiler)
 	}
 
 	// "End" the printing of all remaining scopes in the stack.
-	for (int i = 0; i < scope_stack.size; i++)
+	for (int i = 1; i < scope_stack.size; i++)
 	{
 		struct scope* scope = vector_get_val(scope_stack, i, struct scope*);
 		vector_pop_item(&scope_stack);
@@ -397,7 +397,8 @@ void compiler_print_scope_tree(struct compile_process* compiler)
 		indent--;
 	}
 
-	printf("END ROOT SCOPE\n");
+	vector_free(scope_stack);
+	printf("END ROOT SCOPE\n\n");
 }
 
 int scope_push_symbol(struct scope* scope, struct compiled_symbol symbol)

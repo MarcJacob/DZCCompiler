@@ -116,12 +116,12 @@ static int parse_single_token_node(struct tree_parsing_context* tree, struct par
 		break;
 	default:
 		free(new_node);
-		return -1;	
+		return 0;
 	}
 
 	new_node->position = token->token->position;
 	push_node_to_tree(tree, new_node);
-	return 0;
+	return 1;
 }
 
 // Creates a new expression node from operands and an operator string.
@@ -181,7 +181,7 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	// The left operand is parsed BEFORE this node, so it should be the last item in the compiler's node vec.
 	if (!node_is_expressionable(node_peek(&tree->compiler->node_vec)))
 	{
-		return -1; // Left operand is not expressionable, so it cannot form an expression with the operator.
+		return 0; // Left operand is not expressionable, so it cannot form an expression with the operator.
 	}
 
 	// Left operand was found and can be popped off.
@@ -195,11 +195,11 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	int exp_parenthesis_level = tree->parenthesis_level;
 	struct parser_token* right_operand_start_token = token->next;
 	const enum OPERATOR_TYPE op = token->token->value.opval;
-	if (parse_expressionable_for_op(tree, &right_operand_start_token, op) != 0)
+	if (!parse_expressionable_for_op(tree, &right_operand_start_token, op))
 	{
 		// Right token was not an expressionable.
 		free(left_operand);
-		return -1;
+		return 0;
 	}
 
 	// Extract parsed node from the node vector.
@@ -215,7 +215,7 @@ static int parse_expression(struct tree_parsing_context* tree, struct parser_tok
 	// After parsing the right operand, its start token pointer should be equal to the token coming after.
 	*start_token = right_operand_start_token;
 
-	return 0;
+	return 1;
 }
 
 // Check for parenthesis symbols from the start token and updates it to point to the first non-parenthesis token encountered.
@@ -264,13 +264,13 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 	handle_parenthesis(tree, start_token);
 	if (compiler_has_error(tree->compiler))
 	{
-		return -1;
+		return 0;
 	}
 
 
 	struct parser_token* parser_token = *start_token;
 	struct parsing_node* node = NULL;
-	int parse_res = -1;
+	int parse_res = 0;
 
 	// Keep parsing tokens until we've reached back "above" the entry parenthesis level or a suitable end-of-expression symbol.
 	while (tree->parenthesis_level >= parenthesis_level)
@@ -286,13 +286,13 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 			break;
 		}
 		
-		if (parse_res != 0) break; // Break out immediately on parsing error.
+		if (!parse_res) break; // Break out immediately on parsing error.
 
 		// After every successful parse, handle any new parenthesis that may be encountered.
 		handle_parenthesis(tree, &parser_token);
 		if (compiler_has_error(tree->compiler))
 		{
-			return -1;
+			return 0;
 		}
 
 		if (parser_token == NULL || parser_token->token->type == TOKEN_TYPE_NEWLINE) // Break out when reaching something that must end the expression.
@@ -300,27 +300,18 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 			// Check that we at the top parenthesis level.
 			if (tree->parenthesis_level > 0)
 			{
-				parse_res = -1;
 				tree->compiler->position = node_peek(&tree->compiler->node_vec)->position;
 				compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Reached end of expression with unclosed parenthesis scopes.");
+				return 0;
 			}
 			break;		
 		}
 
 	}
 	
-	if (parse_res == 0)
-	{
-		// Update start_token pointer to point to next token.
-		*start_token = parser_token;
-	}
-	else // Error while parsing expression. Return error code after restoring tree's starting parenthesis level.
-	{
-		tree->parenthesis_level = parenthesis_level;
-		return parse_res;
-	}
-	
-	return 0;
+	// Update start_token pointer to point to next token.
+	*start_token = parser_token;
+	return parse_res;
 }
 
 static int parse_identifier(struct tree_parsing_context* tree, struct parser_token** start_token)
@@ -503,21 +494,23 @@ int parse_global_keyword(struct tree_parsing_context* tree, struct parser_token*
 	int parse_res = parse_keyword(tree, token_list);
 	if (parse_res != 0)
 	{
-		return parse_res;
+		return 0;
 	}
 
 	// Pop most recently built node which should correspond to a global keyword / symbol (in the C sense) we want to keep track of.
 	struct parsing_node* global_node = NULL;
 	if (!node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, global_node))
 	{
-		return -1;
+		return 0;
 	}
+
+	return 1;
 }
 
 /* 
  * Parses tokens starting from the provided token into a node tree, and returns the root node of that tree.
- * Advances the provided token_list to after all the tokens used by the tree parsed by this run of the function.
- * Returns -1 on error, 0 on successful parse, 1 if token list is empty.
+ * If successful, advances the provided token_list to after all the tokens used by the tree parsed by this run of the function.
+ * Returns whether parsing was successful.
  * 
  * Effectively the "entry point" of the parsing process. Each tree represents a C symbol that constitutes the program:
  * - A function declaration or definition
@@ -536,13 +529,14 @@ static int parse_next_tree(struct compile_process* compiler, struct parser_token
 	struct parser_token* parser_token = *token_list;
 	if (parser_token == NULL)
 	{
-		return 1; // No more tokens to parse.
+		return 0; // No more tokens to parse.
 	}
 
-	// Parse the tree's root starting from the first token until we're out of tokens.
+	// Keep parsing tokens until we've generated a valid tree root node.
 	while (parser_token != NULL)
 	{
-		int res = -1;	
+		int res = 0;	
+		int parsed_root = 0;
 		switch (parser_token->token->type)
 		{
 			// Expression tree. To be removed later - free-standing expressions in C do not make sense.
@@ -550,31 +544,35 @@ static int parse_next_tree(struct compile_process* compiler, struct parser_token
 		case TOKEN_TYPE_OPERATOR:
 		case TOKEN_TYPE_IDENTIFIER:
 			res = parse_expressionable(&tree, &parser_token);
-			if (res == 0) res = 1;
+			if (node_peek(&compiler->node_vec)->type == NODE_TYPE_EXPRESSION) parsed_root = 1;
 			break;
 			// Keyword tree start - static symbol declaration.
 		case TOKEN_TYPE_KEYWORD:
 			res = parse_global_keyword(&tree, &parser_token);
+			parsed_root = 1;
 			break;
 		case TOKEN_TYPE_NEWLINE:
 			// Skip newlines entirely.
-			res = 0;
+			res = 1;
 			parser_token = parser_token->next;
 			break;
 		}
 
-		if (res < 0)
+		if (!res)
 		{
 			compiler->position = (*token_list)->token->position;
 			compiler_error(compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Failed to parse new node tree.");
-			return -1;
+			return 0;
 		}
-		else if (res == 1) break; // Parsing result of 1 means we've parsed an appropriate tree node.
+		else if (parsed_root)
+		{
+			break;
+		}
 	}
 
 	// Finished parsing tree. Set the pointer to point to the first token that, in theory, should start the next tree.
 	*token_list = parser_token;
-	return 0;
+	return 1;
 }
 
 int parse(struct compile_process* compiler)
@@ -596,12 +594,12 @@ int parse(struct compile_process* compiler)
 	// Loop over the entire list of parseable tokens until the end is reached or parsing fails.
 	// token_list_item pointer will be "advanced" to the first token of the next potential tree.
 	int parse_res = 0;
-	while ((parse_res = parse_next_tree(compiler, &token_list_item)) == 0)
+	while (token_list_item != NULL && (parse_res = parse_next_tree(compiler, &token_list_item)))
 	{
 	}
 
 	// Handle error. Emit a generic error if none are currently emitted to the compiler but parsing failed.
-	if (parse_res != 1)
+	if (!parse_res)
 	{
 		if (compiler_has_error(compiler))
 		{
