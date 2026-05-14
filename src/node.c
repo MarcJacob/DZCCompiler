@@ -60,39 +60,34 @@ int calculate_expression_node_result(struct parsing_node* root_exp)
 
 void print_node(struct parsing_node* node, int indentation)
 {
-	char indents[NODE_PRINT_MAX_INDENTATION];
-
 	if (indentation >= NODE_PRINT_MAX_INDENTATION)
 	{
 		indentation = NODE_PRINT_MAX_INDENTATION;
 	}
 
-	memset(indents, '\t', indentation);
-	memset(indents + indentation, 0, NODE_PRINT_MAX_INDENTATION - indentation);
-
 	if (node == NULL)
 	{
-		printf("%s<NONE>\n", indents);
+		printf("%*s<NONE>\n", indentation * 4, "");
 		return;
 	}
 	else if (indentation == NODE_PRINT_MAX_INDENTATION)
 	{
-		printf("%s<...>\n", indents);
+		printf("%*s<...>\n", indentation * 4, "");
 		return;
 	}
 
 	switch (node->type)
 	{
 	case NODE_TYPE_EXPRESSION:
-		printf("%s<EXPRESSION, (OP %s) (Depth = %d)> RESULT = %d\n", indents, op_get_string(node->value.exp.op), node->value.exp.parenthesis_level, calculate_expression_node_result(node));
+		printf("%*s<EXPRESSION, (OP %s) (Depth = %d)> RESULT = %d\n", indentation * 4, "", op_get_string(node->value.exp.op), node->value.exp.parenthesis_level, calculate_expression_node_result(node));
 		print_node(node->value.exp.left, indentation + 1);
 		print_node(node->value.exp.right, indentation + 1);
 		break;
 	case NODE_TYPE_NUMBER:
-		printf("%s<NUMBER, %lld>\n", indents, node->value.llnum);
+		printf("%*s<NUMBER, %lld>\n", indentation * 4, "", node->value.llnum);
 		break;
 	default:
-		printf("%s<UNKNOWN>\n", indents);
+		printf("%*s<NONE>\n", indentation * 4, "");
 	}
 }
 

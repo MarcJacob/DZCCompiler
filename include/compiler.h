@@ -264,6 +264,44 @@ struct datatype
 
 };
 
+// Enumerated types of "Compiled symbols", usable symbols within statements / expressions declared within a scope.
+enum COMPILED_SYMBOL_TYPE
+{
+	SYMBOL_TYPE_VAR, // Symbol references a specific variable.
+	SYMBOL_TYPE_FUNC, // Symbol references a function, either just a declaration or a full definition.
+	SYMBOL_TYPE_STRUCT, // Symbol references a structured type.
+	SYMBOL_TYPE_TYPE, // Symbol references a user-declared type.
+};
+
+// Defines a symbol in the sense of a C compilation / linking symbol, linking a name to a broad symbol type,
+// and type-dependent value properties. Symbols are aggregated together in Scopes which define when they are usable in the program.
+struct compiled_symbol
+{
+	enum COMPILED_SYMBOL_TYPE symbol_type;
+	struct string_ascii symbol_name;
+
+	struct parsing_node* node; // Node associated with this symbol. Expected node type and exact meaning depends on symbol type.
+};
+
+enum
+{
+	SCOPE_FLAG_IS_STRUCT = 1 << 0, // Scope is a structured type scope, which cannot read from parent scopes.
+};
+
+// A scope defines a collection of accessible symbols from some point in the program, and a parent scope.
+// By default, accessible symbols are those that are part of the current scope or an "ancestor" of current scope.
+struct scope
+{
+	// Scope Flags enum values bitmask.
+	int flags;
+
+	// Parent scope, if any (must be defined for all scopes other than the global scope).
+	struct scope* parent;
+
+	// Vector of compiled symbols within this scope.
+	struct vector symbols;
+};
+
 // ------- COMPILER --------------
 
 struct compile_process_input_file
@@ -308,6 +346,9 @@ struct compile_process
 	// Contains POINTERS to all independent root nodes from the parsing stage.
 	struct vector node_tree_vec;
 
+	// Vector of all scopes in order of creation, with index 0 being the global scope.
+	struct vector scopes;
+
 	// Output Status
 
 	// COMPILER_ERROR enum value, indicating an error in the compiler process itself or which stage of the process failed.
@@ -333,6 +374,24 @@ void compiler_error(struct compile_process* compiler, int compiler_error_code, i
 
 // Returns whether the compiler is in an error state. When true the compiler should seek to exit as fast as possible.
 inline int compiler_has_error(struct compile_process* compiler) { return compiler->compiler_error > 0; }
+
+// Creates a new scope within the compiler's scope collection with the passed in parent scope, and returns a pointer to it.
+// If parent is NULL, will use Global Scope.
+struct scope* compiler_push_scope(struct compile_process* compiler, struct scope* parent);
+
+struct scope* scope_get_global(struct compile_process* compiler);
+
+// Adds a new symbol (by copy) to the scope. Returns whether the symbol was successfuly pushed.
+// If not, the problem usually is that a symbol with the same name already exists in this scope.
+int scope_push_symbol(struct scope* scope, struct compiled_symbol symbol);
+
+// Searches for and returns a symbol by name from the specified scope or one of its ancestors if applicable.
+// NULL return means the symbol is unknown or unaccessible from the specified scope.
+struct compiled_symbol* scope_get_symbol(struct scope* scope, const char* symbol_name);
+
+// Searches for and returns a symbol by name from the specified scope ONLY.
+// NULL return means the symbol does not exist in the scope (but could exist in a parent scope).
+struct compiled_symbol* scope_get_symbol_local(struct scope* scope, const char* symbol_name);
 
 // Main compilation function & stages.
 

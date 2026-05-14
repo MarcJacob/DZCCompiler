@@ -31,6 +31,15 @@ struct compile_process* compile_process_create(const char* filename, const char*
 	process->node_vec = vector_create(struct parsing_node, 64);
 	process->node_tree_vec = vector_create(struct parsing_node*, 64);
 
+	process->scopes = vector_create(struct scope, 32);
+
+	// Create Global Scope.
+	struct scope global_scope = { 0 };
+	global_scope.parent = NULL;
+	global_scope.flags = 0;
+	global_scope.symbols = vector_create(struct compiled_symbol, 64);
+
+	vector_push(process->scopes, global_scope);
 	return process;
 }
 

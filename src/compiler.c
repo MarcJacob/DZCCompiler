@@ -312,3 +312,81 @@ size_t data_type_primitive_get_size(int primitive_datatype)
 		return 8;
 	}
 }
+
+struct scope* compiler_push_scope(struct compile_process* compiler, struct scope* parent)
+{
+	struct scope new_scope = {0};
+	new_scope.parent = parent;
+	new_scope.symbols = vector_create(struct compiled_symbol, 32);
+
+	vector_push(compiler->scopes, new_scope);
+	return vector_back_ptr(&compiler->scopes);
+}
+
+struct scope* scope_get_global(struct compile_process* compiler)
+{
+	assert(compiler->scopes.size > 0);
+	return vector_get_ptr(compiler->scopes, 0);
+}
+
+int scope_push_symbol(struct scope* scope, struct compiled_symbol symbol)
+{
+	assert(scope != NULL);
+	assert(symbol.symbol_name.length > 0);
+
+	// Check that symbol doesn't already exist in the scope. If it does, do nothing and return.
+	if (scope_get_symbol_local(scope, symbol.symbol_name.str))
+	{
+		return 0;
+	}
+
+	vector_push(scope->symbols, symbol);
+	return 1;
+}
+
+struct compiled_symbol* scope_get_symbol_local(struct scope* scope, const char* symbol_name)
+{
+	assert(scope != NULL);	
+
+	struct compiled_symbol* symbol = NULL;
+	for (int i = 0; i < scope->symbols.size; i++)
+	{
+		symbol = vector_get_ptr(scope->symbols, i);
+		if (strcmp(symbol->symbol_name.str, symbol_name) == 0)
+		{
+			return symbol;
+		}
+	}
+
+	return NULL;
+}
+
+
+struct compiled_symbol* scope_get_symbol(struct scope* scope, const char* symbol_name)
+{
+	assert(scope != NULL);
+
+	// Search current scope in priority, followed by parent if applicable, until a symbol with the passed in symbol name is found.
+	// Search is stopped as "low" as possible in the hierarchy going back up to the root, so symbols can "shadow" one another (although I do not condone this practice, it can be useful).
+
+	// TODO: In very large codebases I could see a looped string comparison here becoming a performance bottleneck.
+	// This search could be sped up with some sort of hashing for symbol names.
+
+	struct compiled_symbol* symbol = NULL;
+	struct scope* searched_scope = scope;
+	while (searched_scope != NULL)
+	{
+		symbol = scope_get_symbol_local(searched_scope, symbol_name);
+		if (symbol != NULL)
+			break;
+
+		// Go up the hierarchy if possible, otherwise break out.
+		if (scope->flags & SCOPE_FLAG_IS_STRUCT)
+			break; // Cannot read ancestor symbols from inside a structured type scope.
+
+		searched_scope = searched_scope->parent;
+	}
+
+	return symbol;
+}
+

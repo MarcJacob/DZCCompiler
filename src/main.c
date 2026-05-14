@@ -1,9 +1,7 @@
 #include <stdio.h>
-
 #include <process.h>
 
 #include "compiler.h"
-
 #include "ascii_string.h"
 
 #include "cprocess.c"
@@ -25,6 +23,7 @@ PROGRAM_START:
 		char* input = gets_s(input_buffer, sizeof(input_buffer));
 
 		if (!input || strlen(input) == 0)
+
 		{
 			printf("Invalid input.\n");
 			goto PROGRAM_START;
