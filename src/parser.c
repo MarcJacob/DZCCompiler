@@ -37,7 +37,6 @@ static struct parser_token_list build_parser_token_list(struct compile_process* 
 		case TOKEN_TYPE_OPERATOR:
 		case TOKEN_TYPE_SYMBOL:
 		case TOKEN_TYPE_KEYWORD:
-		case TOKEN_TYPE_NEWLINE: // Temporary, until we introduce end of statement tokens.
 			new_item = calloc(1, sizeof(struct parser_token));
 			assert(new_item != NULL);
 
@@ -301,7 +300,8 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 			return 0;
 		}
 
-		if (parser_token == NULL || parser_token->token->type == TOKEN_TYPE_NEWLINE) // Break out when reaching something that must end the expression.
+		if (parser_token == NULL || 
+			(parser_token->token->type == TOKEN_TYPE_SYMBOL && parser_token->token->value.cval == ';')) // Break out when reaching something that must end the expression.
 		{
 			// Check that we at the top parenthesis level.
 			if (tree->parenthesis_level > 0)
@@ -310,9 +310,13 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 				compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Reached end of expression with unclosed parenthesis scopes.");
 				return 0;
 			}
+
+			if (parser_token != NULL)
+			{
+				parser_token = parser_token->next;
+			}
 			break;		
 		}
-
 	}
 	
 	// Update start_token pointer to point to next token.
@@ -472,7 +476,7 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 	return type;
 }
 
-static struct parsing_node* parse_variable(struct tree_parsing_context* tree, struct parser_token** token_list, struct datatype* type)
+static int parse_variable(struct tree_parsing_context* tree, struct parser_token** token_list, struct datatype* type)
 {
 	// TODO: Check for array brackets and handle arrays here.
 
@@ -482,7 +486,7 @@ static struct parsing_node* parse_variable(struct tree_parsing_context* tree, st
 	if (name_token == NULL || name_token->token->type != TOKEN_TYPE_IDENTIFIER)
 	{
 		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Expected an identifier.");
-		return NULL;
+		return 0;
 	}
 	
 	tree->compiler->position = name_token->token->position;
@@ -492,35 +496,65 @@ static struct parsing_node* parse_variable(struct tree_parsing_context* tree, st
 	if (next_token == NULL)
 	{
 		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Unexpected EOF while parsing variable.");
-		return NULL;
+		return 0;
 	}
 
 	// If next token is the assignment operator, "apply" the operator by parsing the next token as an expression which
 	// will be used as the symbol's initial value.
+	struct parsing_node* value_node = NULL;
 	if (next_token->token->type == TOKEN_TYPE_OPERATOR 
 		&& next_token->token->value.opval == OPERATOR_ASSIGNMENT)
 	{
 		struct parser_token* exp_start_token = next_token->next;
 		if (!parse_expressionable(tree, &exp_start_token))
 		{
-			return NULL;
+			// Error case, assignment operator was not followed by expressionable node.
+			compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Failed to parse expression variable assignment operator.");
+			return 0;
 		}
 
-		// Build variable node and push it.
+		// Allocate memory for value node and pop parsed expression into it.
+		value_node = calloc(1, sizeof(struct parsing_node));
+		assert(value_node != NULL);
+
+		node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, value_node);
+
+		// Advance list_token to after the expression token(s).
+		*token_list = exp_start_token;
+	}	
+	else
+	{
+		// No operator assignment = simple variable declaration, which only serves to register the symbol. An end-of-statement character is expected.
+		if (next_token->token->type != TOKEN_TYPE_SYMBOL
+			|| next_token->token->value.cval != ';')
 		{
-			struct parsing_node* variable_node = calloc(1, sizeof(struct parsing_node));
-			assert(variable_node != NULL);
-
-			variable_node->type = NODE_TYPE_VARIABLE;
-			variable_node->position = name_token->token->position;
-			variable_node->value.var.name = string_copy_raw_ascii(&name_token->token->value.strval);
-			variable_node->value.var.type = *type;
-
-			// Pop previously parsed Expression node as Value node of variable node.
-			node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, variable_node->value.var.value_node);
-			push_node_to_tree(tree, variable_node);
+			compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Expected ';' token following variable declaration.");
+			return 0;
 		}
+
+		// Advance list_token to whatever comes after the ; token.
+		*token_list = next_token->next;
 	}
+
+	// Build variable node and push it.
+	struct parsing_node* variable_node = calloc(1, sizeof(struct parsing_node));
+	assert(variable_node != NULL);
+
+	variable_node->type = NODE_TYPE_VARIABLE;
+	variable_node->position = name_token->token->position;
+	variable_node->value.var.name = string_copy_raw_ascii(&name_token->token->value.strval);
+	variable_node->value.var.type = *type;
+
+	variable_node->value.var.value_node = value_node;
+
+	push_node_to_tree(tree, variable_node);
+	
+	return 1;
+}
+
+static int parse_function(struct tree_parsing_context* tree, struct parser_token** start_token, struct datatype* return_type)
+{
+	return 0;
 }
 
 int parse_keyword(struct tree_parsing_context* tree, struct parser_token** start_token)
@@ -543,7 +577,16 @@ int parse_keyword(struct tree_parsing_context* tree, struct parser_token** start
 		}
 
 		// We have the type, now determine if it's a variable, a function, or a structured type.
-		parse_variable(tree, &token, &type);
+		if (parse_variable(tree, &token, &type))
+		{
+		}
+		else if (compiler_has_error(tree->compiler)) return 0;
+
+		else if (parse_function(tree, &token, &type))
+		{
+		}
+		else if (compiler_has_error(tree->compiler)) return 0;
+		// TODO: Support structured type declarations.
 	}
 
 	*start_token = token;
@@ -552,18 +595,19 @@ int parse_keyword(struct tree_parsing_context* tree, struct parser_token** start
 
 int parse_global_keyword(struct tree_parsing_context* tree, struct parser_token** token_list)
 {
-	int parse_res = parse_keyword(tree, token_list);
-	if (parse_res != 0)
+	if (!parse_keyword(tree, token_list))
 	{
 		return 0;
 	}
 
+	/*
 	// Pop most recently built node which should correspond to a global keyword / symbol (in the C sense) we want to keep track of.
 	struct parsing_node* global_node = NULL;
 	if (!node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, global_node))
 	{
 		return 0;
 	}
+	*/
 
 	return 1;
 }
@@ -676,6 +720,7 @@ int parse(struct compile_process* compiler)
 		struct parsing_node* tree_root = *(struct parsing_node**)vector_get_ptr(compiler->node_tree_vec, i);
 		print_node(tree_root, 0);
 	}
+	printf("\n");
 
 	// Perform symbols & scopes resolution.
 	generate_symbols(compiler);

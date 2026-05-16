@@ -88,8 +88,19 @@ void print_node(struct parsing_node* node, int indentation)
 	case NODE_TYPE_NUMBER:
 		printf("%*s<NUMBER, %lld>\n", indentation * 4, "", node->value.llnum);
 		break;
+	case NODE_TYPE_VARIABLE:
+		if (node->value.var.value_node)
+		{
+			printf("%*s<VAR, %s, %s> INIT VAL = \n", indentation * 4, "", node->value.var.type.type_string, node->value.var.name);
+			print_node(node->value.var.value_node, indentation + 1);
+		}
+		else
+		{
+			printf("%*s<VAR, %s, %s>\n", indentation * 4, "", node->value.var.type.type_string, node->value.var.name);
+		}
+		break;
 	default:
-		printf("%*s<NONE>\n", indentation * 4, "");
+		printf("%*s<UNKNOWN>\n", indentation * 4, "");
 	}
 }
 
