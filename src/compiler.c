@@ -381,7 +381,7 @@ void compiler_print_scope_tree(struct compile_process* compiler)
 			switch (symbol->symbol_type)
 			{
 			case SYMBOL_TYPE_FUNC:
-				printf("%*sFUNCTION '%s'\n", indent * 4, "", symbol->symbol_name.str);
+				printf("%*sFUNC '%s'\n", indent * 4, "", symbol->symbol_name.str);
 				break;
 			case SYMBOL_TYPE_VAR:
 				printf("%*sVAR %s : %s\n", indent * 4, "", symbol->symbol_name.str, symbol->node->value.var.type.type_string);

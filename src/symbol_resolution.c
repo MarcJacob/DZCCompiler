@@ -19,6 +19,14 @@ static int parse_symbol_variable(struct compile_process* compiler, struct scope*
 static int parse_symbol_function(struct compile_process* compiler, struct scope* owner_scope, struct parsing_node* function_node)
 {
 	assert(function_node != NULL && function_node->type == NODE_TYPE_FUNCTION);
+
+	// Create new symbol for the function and add it to the owner scope.
+	struct compiled_symbol func_symbol = { 0 };
+	func_symbol.node = function_node;
+	func_symbol.symbol_name = string_create_ascii(function_node->value.func.name);
+	func_symbol.symbol_type = SYMBOL_TYPE_FUNC;
+
+	scope_push_symbol(owner_scope, func_symbol);
 }
 
 static int parse_symbol_structure(struct compile_process* compiler, struct scope* owner_scope, struct parsing_node* structure_node)

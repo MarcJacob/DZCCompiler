@@ -524,6 +524,13 @@ struct parsing_node
 			struct parsing_node* value_node; // Node used to determine initial value of variable.
 		} var;
 
+		struct parsing_node_func_value
+		{
+			struct datatype return_type; // Function's return type.
+			const char* name;
+			struct vector param_var_nodes; // Vector of variable nodes representing the function's parameters.
+		} func;
+
 		char cval;
 		struct string_ascii sval;
 		ui32 inum;

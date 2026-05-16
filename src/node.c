@@ -99,6 +99,16 @@ void print_node(struct parsing_node* node, int indentation)
 			printf("%*s<VAR, %s, %s>\n", indentation * 4, "", node->value.var.type.type_string, node->value.var.name);
 		}
 		break;
+	case NODE_TYPE_FUNCTION:
+		printf("%*s<FUNC, %s, %s>\n", indentation * 4, "", node->value.func.return_type.type_string, node->value.func.name);
+		if (node->value.func.param_var_nodes.size > 0)
+		{
+			for (int i = 0; node->value.func.param_var_nodes.size; i++)
+			{
+				print_node(vector_get_val(node->value.func.param_var_nodes, i, struct parsing_node*), indentation + 1);
+			}
+		}
+		break;
 	default:
 		printf("%*s<UNKNOWN>\n", indentation * 4, "");
 	}

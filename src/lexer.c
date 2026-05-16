@@ -286,6 +286,7 @@ struct token* read_token_symbol(struct lex_process* lexer)
 	case('}'): // Block scope end
 	case(';'): // Statement end
 	case(':'): // Label locator end
+	case(','): // Param / array init list separator
 
 		// Char is a symbol. Allocate and populate new_token.
 		new_token = calloc(1, sizeof(struct token));
@@ -295,7 +296,6 @@ struct token* read_token_symbol(struct lex_process* lexer)
 
 		new_token->value.cval = c;
 		new_token->position = lexer->position;
-
 	default:
 		break; // Char isn't a symbol, leave new_token at NULL.
 	}

@@ -491,6 +491,7 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 	return type;
 }
 
+// Parses and pushes a variable declaration node.
 static int parse_variable(struct tree_parsing_context* tree, struct parser_token** token_list, struct datatype* type)
 {
 	// TODO: Check for array brackets and handle arrays here.
@@ -534,21 +535,22 @@ static int parse_variable(struct tree_parsing_context* tree, struct parser_token
 
 		node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, value_node);
 
-		// Advance list_token to after the expression token(s).
-		*token_list = exp_start_token;
-	}	
-	else
-	{
-		// No operator assignment = simple variable declaration, which only serves to register the symbol. An end-of-statement character is expected.
-		if (next_token->token->type != TOKEN_TYPE_SYMBOL
-			|| next_token->token->value.cval != ';')
-		{
-			compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Expected ';' token following variable declaration.");
-			return 0;
-		}
+		// Check for ';' character and advance past it.
 
-		*token_list = next_token;
+
+		// Advance next_token to after the expression token(s).
+		next_token = exp_start_token;
+	}	
+
+	// Check for end-of-statement token.
+	if (next_token->token->type != TOKEN_TYPE_SYMBOL
+		|| next_token->token->value.cval != ';')
+	{
+		return 0;
 	}
+
+	// Move past ';'
+	next_token = next_token->next;
 
 	// Build variable node and push it.
 	struct parsing_node* variable_node = calloc(1, sizeof(struct parsing_node));
@@ -563,12 +565,153 @@ static int parse_variable(struct tree_parsing_context* tree, struct parser_token
 
 	push_node_to_tree(tree, variable_node);
 	
+	*token_list = next_token;
 	return 1;
+}
+
+// Parses and returns a variable node from the provided tokens assuming it is part of a function declaration.
+static struct parsing_node* parse_function_param(struct tree_parsing_context* tree, struct parser_token** start_token)
+{
+	struct parser_token* token = *start_token;
+
+	if (token == NULL)
+	{
+		return NULL;
+	}
+
+	struct datatype param_type = parse_datatype(tree, start_token);
+	if (compiler_has_error(tree->compiler))
+	{
+		return NULL;
+	}
+
+	return NULL;
 }
 
 static int parse_function(struct tree_parsing_context* tree, struct parser_token** start_token, struct datatype* return_type)
 {
-	return 0;
+	struct parser_token* token = *start_token;
+
+	// After a return type, we expect an identifier (TODO: Support function pointers as well) naming the function, followed by comma-separated arguments
+	// enclosed in parenthesis, and either a body / scope or a semicolon.
+
+	if (token == NULL)
+	{
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Encountered premature EOF.");
+		return 0;
+	}
+
+	if (token->token->type != TOKEN_TYPE_IDENTIFIER)
+	{
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Expected identifier token.");
+		return 0;
+	}
+
+	struct parser_token* func_name_token = token;
+
+	// Check for opening parenthesis, after which we know for sure that we are parsing a function.
+
+	token = token->next;
+
+	if (token == NULL || token->token->type != TOKEN_TYPE_SYMBOL
+		|| token->token->value.cval != '(')
+	{
+		// Fail parsing but do not treat it as an error - we could parse something else instead.
+		return 0;
+	}
+
+	token = token->next;
+	
+	// Start parsing comma-separated parameter as variable nodes.
+
+	struct vector params_vector = vector_create(struct parsing_node*, 2);
+	while (token != NULL && token->token->type == TOKEN_TYPE_KEYWORD)
+	{
+		// Parse a variable node, add it as a parameter node to the function node.
+		// Each parameter is followed either by a comma to start another parameter, or by a closing parenthesis to finish the function declaration.
+
+		struct parsing_node* param_node = parse_function_param(tree, &token);
+		if (token == NULL || param_node == NULL)
+		{
+			vector_free(params_vector);
+			if (!compiler_has_error(tree->compiler))
+			{
+				tree->compiler->position = token->token->position;
+				compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Failed to parse function parameter.");
+			}
+			return 0;
+		}
+
+		vector_push(params_vector, param_node);
+
+		if (token->token->type == TOKEN_TYPE_SYMBOL
+			&& (token->token->value.cval == ')'
+				|| token->token->value.cval == ','))
+		{
+			if (token->token->value.cval == ')')
+			{
+				break; // Break out to finish parameters parsing.
+			}
+			else
+			{
+				token = token->next;
+				continue; // Continue parsing, moving to whatever comes after the comma.
+			}
+		}
+		else
+		{
+			vector_free(params_vector);
+
+			tree->compiler->position = token->token->position;
+			compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Unexpected token following parameter.");
+			return 0;
+		}
+	}
+
+	if (token == NULL)
+	{
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Unexpected EOF following function parameters.");
+		return 0;
+	}
+
+	if (token->token->type != TOKEN_TYPE_SYMBOL
+		|| token->token->value.cval != ')')
+	{
+		tree->compiler->position = token->token->position;
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Expected closing parenthesis enclosing function parameters.");
+		return 0;
+	}
+	
+	// Advance past ')'
+	token = token->next;
+
+	// TODO: Parse function body if next token is '{'.
+
+	if (token->token->type != TOKEN_TYPE_SYMBOL
+		|| token->token->value.cval != ';')
+	{
+		tree->compiler->position = token->token->position;
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Expected ';' following function declaration");
+		return 0;
+	}
+
+	// Advance past ';'.
+	token = token->next;
+
+	// Create and push function node.
+	struct parsing_node* func_node = calloc(1, sizeof(struct parsing_node));
+	assert(func_node);
+
+	func_node->type = NODE_TYPE_FUNCTION;
+	func_node->position = func_name_token->token->position;
+	func_node->value.func.name = func_name_token->token->value.strval.str;
+	func_node->value.func.param_var_nodes = params_vector;
+	func_node->value.func.return_type = *return_type;
+
+	push_node_to_tree(tree, func_node);
+
+	*start_token = token;
+	return 1;
 }
 
 int parse_keyword(struct tree_parsing_context* tree, struct parser_token** start_token)
@@ -609,40 +752,7 @@ int parse_keyword(struct tree_parsing_context* tree, struct parser_token** start
 
 int parse_global_keyword(struct tree_parsing_context* tree, struct parser_token** token_list)
 {
-	if (!parse_keyword(tree, token_list))
-	{
-		return 0;
-	}
-
-	/*
-	// Pop most recently built node which should correspond to a global keyword / symbol (in the C sense) we want to keep track of.
-	struct parsing_node* global_node = NULL;
-	if (!node_pop(&tree->compiler->node_vec, &tree->compiler->node_tree_vec, global_node))
-	{
-		return 0;
-	}
-	*/
-
-	// End of declaration: expecting a ';' symbol.
-	struct parser_token* final_token = *token_list;
-	if (final_token == NULL)
-	{
-		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Reached end of file while parsing global keyword.");
-		return 0;
-	}
-
-	if (final_token->token->type != TOKEN_TYPE_SYMBOL
-		|| final_token->token->value.cval != ';')
-	{
-		tree->compiler->position = final_token->token->position;
-		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Expected ';' token following global keyword declaration.");
-		return 0;
-	}
-
-	// Advance token by one more to consume the ; token.
-	*token_list = (*token_list)->next;
-
-	return 1;
+	return parse_keyword(tree, token_list);
 }
 
 /* 
