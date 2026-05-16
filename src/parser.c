@@ -333,6 +333,9 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 	struct datatype type = {0};
 	type.flags |= DATATYPE_IS_SIGNED;
 
+	// Dynamic string to build the type's name string over the function.
+	struct string_ascii type_name_string = string_create_ascii("");
+
 	// Parse prefixed modifiers, the type name itself, then postfixed modifiers.
 	struct parser_token* token = *token_list;
 	if (token == NULL)
@@ -353,18 +356,23 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 			break;
 		case KEYWORD_UNSIGNED:
 			type.flags &= ~DATATYPE_IS_SIGNED;
+			string_append_ascii(&type_name_string, "unsigned ");
 			break;
 		case KEYWORD_CONST:
 			type.flags |= DATATYPE_IS_CONST;
+			string_append_ascii(&type_name_string, "const ");
 			break;
 		case KEYWORD_STATIC:
 			type.flags |= DATATYPE_IS_STATIC;
+			string_append_ascii(&type_name_string, "static ");
 			break;
 		case KEYWORD_EXTERN:
 			type.flags |= DATATYPE_IS_EXTERN;
+			string_append_ascii(&type_name_string, "extern ");
 			break;
 		case KEYWORD_VOLATILE:
 			type.flags |= DATATYPE_IS_VOLATILE;
+			string_append_ascii(&type_name_string, "volatile ");
 			break;
 		default:
 			tree->compiler->position = token->token->position;
@@ -382,11 +390,14 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 		return type;
 	}
 
-	// Datatype string
+	// Datatype type parsing & string base name
 	if (token->token->type == TOKEN_TYPE_KEYWORD && keyword_is_datatype(token->token->value.keywordval))
 	{
 		// Parse datatype type from one of the primitive types.
 		type.type = keyword_to_data_type(token->token->value.keywordval);
+
+		char base_name_buffer[32];
+		memset(base_name_buffer, 0, sizeof(base_name_buffer));
 
 		if (type.type == DATA_TYPE_STRUCT || type.type == DATA_TYPE_UNION)
 		{
@@ -401,25 +412,27 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 				if (type.type == DATA_TYPE_STRUCT)
 				{
 					static size_t ANONYMOUS_STRUCT_COUNTER = 0;
-					sprintf_s(type.type_string, DATATYPE_MAX_STRING_LEN, "ANON_STRUCT_%lld", ANONYMOUS_STRUCT_COUNTER++);
+					sprintf_s(base_name_buffer, DATATYPE_MAX_STRING_LEN, "ANON_STRUCT_%lld", ANONYMOUS_STRUCT_COUNTER++);
 				}
 				else
 				{
 					static size_t ANONYMOUS_UNION_COUNTER = 0;
-					sprintf_s(type.type_string, DATATYPE_MAX_STRING_LEN, "ANON_UNION_%lld", ANONYMOUS_UNION_COUNTER++);
+					sprintf_s(base_name_buffer, DATATYPE_MAX_STRING_LEN, "ANON_UNION_%lld", ANONYMOUS_UNION_COUNTER++);
 				}
 			}
 			else
 			{
 				// Parse identifier, use its string value as the datatype's string.
-				strcpy_s(type.type_string, token->token->value.strval.length, token->token->value.strval.str);
+				strcpy_s(base_name_buffer, token->token->value.strval.length, token->token->value.strval.str);
 			}
 		}
 		else
 		{
 			// Primitive types - copy the primitive type keyword string into datatype.
-			strcpy_s(type.type_string, DATATYPE_MAX_STRING_LEN, keyword_get_string(token->token->value.keywordval));
+			strcpy_s(base_name_buffer, DATATYPE_MAX_STRING_LEN, keyword_get_string(token->token->value.keywordval));
 		}
+
+		string_append_ascii(&type_name_string, base_name_buffer);
 
 		// Move to next token.
 		tree->compiler->position = token->token->position;
@@ -445,6 +458,8 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 	{
 		type.pointer_depth++;
 		token = token->next;
+
+		string_append_char_ascii(&type_name_string, '*');
 	}
 
 	// Determine type size.
@@ -465,6 +480,11 @@ static struct datatype parse_datatype(struct tree_parsing_context* tree, struct 
 		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Structured types support is not implemented yet.");
 		return type;
 	}
+
+	// Copy type name into final type name container.
+
+	strncpy_s(type.type_string, type_name_string.length + 1, type_name_string.str, type_name_string.length + 1);
+	string_free_ascii(&type_name_string);
 
 	// Once parsing process is done successfully, advance provided token_list pointer to point to the next available parser_token.
 	*token_list = token;
@@ -527,8 +547,7 @@ static int parse_variable(struct tree_parsing_context* tree, struct parser_token
 			return 0;
 		}
 
-		// Advance list_token to whatever comes after the ; token.
-		*token_list = next_token->next;
+		*token_list = next_token;
 	}
 
 	// Build variable node and push it.
