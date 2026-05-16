@@ -383,7 +383,9 @@ void compiler_print_scope_tree(struct compile_process* compiler)
 			case SYMBOL_TYPE_FUNC:
 				printf("%*sFUNCTION '%s'\n", indent * 4, "", symbol->symbol_name.str);
 				break;
-				// TODO: Handle other symbol types.
+			case SYMBOL_TYPE_VAR:
+				printf("%*sVAR %s : %s\n", indent * 4, "", symbol->symbol_name.str, symbol->node->value.var.type.type_string);
+				break;
 			default:
 				printf("%*sSYMBOL '%s', UNKNOWN TYPE (%d)\n", indent * 4, "", symbol->symbol_name.str, symbol->symbol_type);
 				break;

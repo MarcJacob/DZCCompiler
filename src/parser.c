@@ -303,17 +303,12 @@ static int parse_expressionable(struct tree_parsing_context* tree, struct parser
 		if (parser_token == NULL || 
 			(parser_token->token->type == TOKEN_TYPE_SYMBOL && parser_token->token->value.cval == ';')) // Break out when reaching something that must end the expression.
 		{
-			// Check that we at the top parenthesis level.
+			// Check that we are at the top parenthesis level.
 			if (tree->parenthesis_level > 0)
 			{
 				tree->compiler->position = node_peek(&tree->compiler->node_vec)->position;
 				compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Reached end of expression with unclosed parenthesis scopes.");
 				return 0;
-			}
-
-			if (parser_token != NULL)
-			{
-				parser_token = parser_token->next;
 			}
 			break;		
 		}
@@ -609,6 +604,25 @@ int parse_global_keyword(struct tree_parsing_context* tree, struct parser_token*
 	}
 	*/
 
+	// End of declaration: expecting a ';' symbol.
+	struct parser_token* final_token = *token_list;
+	if (final_token == NULL)
+	{
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Reached end of file while parsing global keyword.");
+		return 0;
+	}
+
+	if (final_token->token->type != TOKEN_TYPE_SYMBOL
+		|| final_token->token->value.cval != ';')
+	{
+		tree->compiler->position = final_token->token->position;
+		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Expected ';' token following global keyword declaration.");
+		return 0;
+	}
+
+	// Advance token by one more to consume the ; token.
+	*token_list = (*token_list)->next;
+
 	return 1;
 }
 
@@ -728,6 +742,7 @@ int parse(struct compile_process* compiler)
 	// Report on parsed scopes / symbols.
 	printf("\n\nParsed scopes & symbols:\n\n");
 	compiler_print_scope_tree(compiler);
+	printf("\n");
 
 	free_parser_token_list(&token_list);
 	return PARSER_ALL_OK;

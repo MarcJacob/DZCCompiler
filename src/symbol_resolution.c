@@ -6,6 +6,14 @@
 static int parse_symbol_variable(struct compile_process* compiler, struct scope* owner_scope, struct parsing_node* variable_node)
 {
 	assert(variable_node != NULL && variable_node->type == NODE_TYPE_VARIABLE);
+
+	// Create new symbol for the variable and add it to the owner scope.
+	struct compiled_symbol var_symbol = {0};
+	var_symbol.node = variable_node;
+	var_symbol.symbol_name = string_create_ascii(variable_node->value.var.name);
+	var_symbol.symbol_type = SYMBOL_TYPE_VAR;
+
+	scope_push_symbol(owner_scope, var_symbol);
 }
 
 static int parse_symbol_function(struct compile_process* compiler, struct scope* owner_scope, struct parsing_node* function_node)
@@ -27,7 +35,16 @@ int generate_symbols(struct compile_process* compiler)
 
 	for (int tree_index = 0; tree_index < compiler->node_tree_vec.size; tree_index++)
 	{
-		struct parsing_node** root = vector_get_ptr(compiler->node_tree_vec, tree_index);
+		struct parsing_node* root = *(struct parsing_node**)vector_get_ptr(compiler->node_tree_vec, tree_index);
+		switch (root->type)
+		{
+		case NODE_TYPE_VARIABLE:
+			parse_symbol_variable(compiler, compiler_get_global_scope(compiler), root);
+			break;
+		case NODE_TYPE_FUNCTION:
+			parse_symbol_function(compiler, compiler_get_global_scope(compiler), root);
+			break;
+		}
 	}
 
 	printf("\nSymbol generation complete.\n\n");
