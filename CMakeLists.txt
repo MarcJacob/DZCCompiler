@@ -6,7 +6,7 @@ project ("DZCCompiler")
 add_executable (DZCCompiler "src/main.c")
 
 # 
-set_property(TARGET DZCCompiler PROPERTY C_STANDARD 90)
+set_property(TARGET DZCCompiler PROPERTY C_STANDARD 99)
 
 target_include_directories(DZCCompiler PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include/)
 
