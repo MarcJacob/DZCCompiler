@@ -19,7 +19,7 @@
 
 typedef size_t string_size;
 
-static const short			STRING_ASCII_MEM_ALIGN = 8; // The memory alignment to enforce when pushing / shrinking strings.
+static const unsigned short			STRING_ASCII_MEM_ALIGN = 8; // The memory alignment to enforce when pushing / shrinking strings.
 
 // Simple string maintaining both a prepended memory size and length, 
 // and guarantees a null-termination character for compatibility with C string functions.
@@ -72,7 +72,7 @@ inline const char* string_copy_raw_ascii(struct string_ascii* str)
 {
 	assert(str != NULL);
 
-	const char* copy = malloc(str->length + 1);
+	char* copy = malloc(str->length + 1);
 	assert(copy != NULL);
 
 	strncpy_s(copy, str->length + 1, str->str, str->length + 1);

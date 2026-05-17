@@ -31,7 +31,7 @@ enum OPERATOR_TYPE
 
 // Returns the operator type enumeration value associated with the string / longest valid beginning sub-string.
 // Also return the length of the string so the user can know how many characters from the input string were "valid".
-enum OPERATOR_TYPE op_get_from_string(const char* op_str, int* out_strlen);
+enum OPERATOR_TYPE op_get_from_string(const char* op_str, ui32* out_strlen);
 
 // Returns the null-terminated ASCII string associated with the operator type.
 // TODO: Consider adding a "Display-friendly" aswell, to differentiate between identifying the operator on a display and identifying it from source code.
@@ -89,7 +89,7 @@ struct token
 	int flags;
 
 	// Is at least one white space present between this token and the next one ?
-	byte whitespace_present;
+	ubyte whitespace_present;
 };
 
 // Enumerated keyword values supported by the compiler.
@@ -223,6 +223,8 @@ inline int keyword_to_data_type(enum KEYWORD keyword)
 		return DATA_TYPE_STRUCT;
 	case KEYWORD_UNION:
 		return DATA_TYPE_UNION;
+	default:
+		break;
 	}
 
 	return DATA_TYPE_UNKNOWN;
@@ -316,6 +318,7 @@ enum
 
 	COMPILER_LEXER_ERROR, // Failed at the Lexical Analysis stage.
 	COMPILER_PARSER_ERROR, // Failed at the Parsing stage.
+	COMPILER_SYMBOL_RESOLVER_ERROR, // Failed at the Symbol Resolution stage.
 };
 
 // Ongoing compilation process.
@@ -399,12 +402,13 @@ struct compiled_symbol* scope_get_symbol_local(struct scope* scope, const char* 
 // and out_stage_error will be populated with the stage-specific error code.
 int compile_file(const char* filename, const char* out_filename, int flags, int* out_stage_error);
 
+struct lex_process;
 int lex(struct lex_process* lexer);
 int parse(struct compile_process* compiler);
+int resolve_symbols(struct compile_process* compiler);
 
 // ----------- LEXER ------------- Implemented in lexer.c
 
-struct lex_process;
 
 typedef char (*LEX_PROCESS_NEXT_CHAR_FUNC)(struct lex_process* process);
 typedef char (*LEX_PROCESS_PEEK_CHAR_FUNC)(struct lex_process* process);
@@ -433,7 +437,7 @@ struct lex_process
 
 	// How many brackets / parenthesis are open at the current position.
 	int current_expression_count;
-	byte* parentheses_buffer;
+	ubyte* parentheses_buffer;
 
 	struct lex_process_functions functions;
 
@@ -561,8 +565,15 @@ struct parsing_node* node_peek(struct vector* node_vec);
 // Used to construct more complex nodes from constituent nodes.
 int node_pop(struct vector* node_vec, struct vector* root_node_vec, struct parsing_node* out_popped);
 
-// Symbols resolution (part of the parsing process but implemented in symbol_resolution.c)
+// Symbols resolution (implemented in symbol_resolution.c)
 
-int generate_symbols(struct compile_process* compiler);
+// Possible stage error values for Symbol Resolution.
+enum
+{
+	SYMBOL_RESOLVER_ALL_OK,
+	SYMBOL_RESOLVER_GENERAL_ERROR,
+	SYMBOL_RESOLVER_FATAL_ERROR,
+};
+
 
 #endif // COMPILER_INCLUDED

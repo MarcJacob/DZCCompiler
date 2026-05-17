@@ -65,6 +65,12 @@ int compile_file(const char* filename, const char* out_filename, int flags, int*
 		COMPILER_EXIT_FAILURE();
 	}
 
+	// Perform Symbols Resolution
+	if (resolve_symbols(compiler) != SYMBOL_RESOLVER_ALL_OK)
+	{
+		COMPILER_EXIT_FAILURE();
+	}
+
 	// Perform code generation
 	
 	compile_process_destroy(compiler);
@@ -96,7 +102,7 @@ static struct op_string_pairing OP_STRING_PAIRING_TABLE[] =
 	{ OPERATOR_ASSIGNMENT, "="},
 };
 
-enum OPERATOR_TYPE op_get_from_string(const char* op_str, int* out_strlen)
+enum OPERATOR_TYPE op_get_from_string(const char* op_str, ui32* out_strlen)
 {
 	assert(op_str != NULL);
 	assert(out_strlen != NULL);
@@ -114,10 +120,10 @@ enum OPERATOR_TYPE op_get_from_string(const char* op_str, int* out_strlen)
 		// or the pairing string.
 
 		const char* pairing_str = OP_STRING_PAIRING_TABLE[pairing_index].op_str;
-		const size_t pairing_str_len = strlen(pairing_str);
+		const ui32 pairing_str_len = (ui32)strlen(pairing_str);
 
 		// Count number of common characters.
-		int ci = 0;
+		ui32 ci = 0;
 		for (; ci < op_str_len && ci < pairing_str_len 
 								&& op_str[ci] == pairing_str[ci];
 		ci++)
@@ -345,7 +351,7 @@ void compiler_print_scope_tree(struct compile_process* compiler)
 	int indent = -1;
 
 	printf("BEGIN ROOT SCOPE\n");
-	for (int i = 0; i < compiler->scopes.size; i++)
+	for (ui16 i = 0; i < compiler->scopes.size; i++)
 	{
 		struct scope* scope = vector_get_ptr(compiler->scopes, i);
 
@@ -375,9 +381,9 @@ void compiler_print_scope_tree(struct compile_process* compiler)
 
 		// Print all symbols in the scope.
 		indent++;
-		for (int i = 0; i < scope->symbols.size; i++)
+		for (ui16 symbol_index = 0; symbol_index < scope->symbols.size; symbol_index++)
 		{
-			struct compiled_symbol* symbol = vector_get_ptr(scope->symbols, i);
+			struct compiled_symbol* symbol = vector_get_ptr(scope->symbols, symbol_index);
 			switch (symbol->symbol_type)
 			{
 			case SYMBOL_TYPE_FUNC:
@@ -396,9 +402,8 @@ void compiler_print_scope_tree(struct compile_process* compiler)
 	}
 
 	// "End" the printing of all remaining scopes in the stack.
-	for (int i = 1; i < scope_stack.size; i++)
+	for (ui16 i = 1; i < scope_stack.size; i++)
 	{
-		struct scope* scope = vector_get_val(scope_stack, i, struct scope*);
 		vector_pop_item(&scope_stack);
 		printf("%*sEND SCOPE %d\n", indent * 4, "", scope_stack.size);
 		indent--;
@@ -428,7 +433,7 @@ struct compiled_symbol* scope_get_symbol_local(struct scope* scope, const char* 
 	assert(scope != NULL);	
 
 	struct compiled_symbol* symbol = NULL;
-	for (int i = 0; i < scope->symbols.size; i++)
+	for (ui16 i = 0; i < scope->symbols.size; i++)
 	{
 		symbol = vector_get_ptr(scope->symbols, i);
 		if (strcmp(symbol->symbol_name.str, symbol_name) == 0)

@@ -14,7 +14,7 @@
 // "No safety" policy for now - if you do anything stupid, you will crash ! Perform your own safety checks if anything might go out of bounds.
 struct vector
 {
-	byte* mem; // Start of storage memory.
+	ubyte* mem; // Start of storage memory.
 
 	ui16 item_size; // Size of each stored item in bytes.
 	ui16 capacity; // The current capacity of the vector in number of items.
@@ -27,9 +27,9 @@ inline void vector_realloc(struct vector* vec, ui16 capacity)
 {
 	assert(vec != NULL);
 
-	byte* prev_mem = vec->mem;
+	ubyte* prev_mem = vec->mem;
 
-	vec->mem = (byte*)calloc((size_t)capacity, vec->item_size);
+	vec->mem = (ubyte*)calloc((size_t)capacity, vec->item_size);
 	assert(vec->mem != NULL);
 
 	if (prev_mem)

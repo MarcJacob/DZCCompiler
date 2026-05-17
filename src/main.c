@@ -7,10 +7,10 @@
 // Directly include major compiler step implementations.
 
 #include "cprocess.c"
-#include "node.c"
 #include "compiler.c"
-#include "lexer.c"
-#include "parser.c"
+#include "lexer/lexer.c"
+#include "parser/parser.c"
+#include "symbol_resolution/symbol_resolution.c"
 
 int main(int argc, char** argv)
 {

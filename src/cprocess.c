@@ -98,7 +98,7 @@ char lex_process_next_char(struct lex_process* process)
 	process->position.col++;
 
 	// Get next character in file, and handle newline characters.
-	char c = getc(compiler->input_file.file);
+	char c = (char)getc(compiler->input_file.file);
 	if (c == '\n')
 	{
 		process->position.line++;
@@ -114,7 +114,7 @@ char lex_process_peek_char(struct lex_process* process)
 	compiler->position.col++;
 
 	// Peek next character in file, and handle newline characters.
-	char c = getc(compiler->input_file.file);
+	char c = (char)getc(compiler->input_file.file);
 	ungetc(c, compiler->input_file.file);
 
 	return c;
