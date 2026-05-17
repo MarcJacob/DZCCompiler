@@ -53,9 +53,13 @@ void compile_process_destroy(struct compile_process* process)
 }
 
 // Default lexer functions.
-char lex_process_next_char(struct lex_process* process);
-char lex_process_peek_char(struct lex_process* process);
-void lex_process_push_char(struct lex_process* process, char c);
+
+// Default next_char implementation, assuming the private data pointer points to a FILE handle.
+char lex_process_next_char_default(struct lex_process* process);
+// Default peek_char implementation, assuming the private data pointer points to a FILE handle.
+char lex_process_peek_char_default(struct lex_process* process);
+// Default push_char implementation, assuming the private data pointer points to a FILE handle.
+void lex_process_push_char_default(struct lex_process* process, char c);
 
 struct lex_process* lex_process_create(struct compile_process* compiler, void* private_data)
 {
@@ -71,12 +75,11 @@ struct lex_process* lex_process_create(struct compile_process* compiler, void* p
 
 	// Initialize token vector and parentheses buffer.
 	process->token_vec = vector_create(struct token, 256);
-	process->parentheses_buffer = calloc(256, 1);
 
 	// Init functions to defaults.
-	process->functions.next_char = lex_process_next_char;
-	process->functions.peek_char = lex_process_peek_char;
-	process->functions.push_char = lex_process_push_char;
+	process->functions.next_char = lex_process_next_char_default;
+	process->functions.peek_char = lex_process_peek_char_default;
+	process->functions.push_char = lex_process_push_char_default;
 
 	process->position.col = 1;
 	process->position.line = 1;
@@ -88,17 +91,18 @@ struct lex_process* lex_process_create(struct compile_process* compiler, void* p
 void lex_process_destroy(struct lex_process* lexer)
 {
 	vector_free_ptr(&lexer->token_vec);
-	free(lexer->parentheses_buffer);
 	free(lexer);
 }
 
-char lex_process_next_char(struct lex_process* process)
+char lex_process_next_char_default(struct lex_process* process)
 {
-	struct compile_process* compiler = process->compiler;
+	assert(process->private != NULL);
+	FILE* source_file = (FILE*)process->private;
+
 	process->position.col++;
 
 	// Get next character in file, and handle newline characters.
-	char c = (char)getc(compiler->input_file.file);
+	char c = (char)getc(source_file);
 	if (c == '\n')
 	{
 		process->position.line++;
@@ -108,20 +112,26 @@ char lex_process_next_char(struct lex_process* process)
 	return c;
 }
 
-char lex_process_peek_char(struct lex_process* process)
+char lex_process_peek_char_default(struct lex_process* process)
 {
-	struct compile_process* compiler = process->compiler;
-	compiler->position.col++;
+	assert(process->private != NULL);
+	FILE* source_file = (FILE*)process->private;
 
 	// Peek next character in file, and handle newline characters.
-	char c = (char)getc(compiler->input_file.file);
-	ungetc(c, compiler->input_file.file);
+	char c = (char)getc(source_file);
+	ungetc(c, source_file);
 
 	return c;
 }
 
-void lex_process_push_char(struct lex_process* process, char c)
+void lex_process_push_char_default(struct lex_process* process, char c)
 {
-	struct compile_process* compiler = process->compiler;
-	ungetc(c, compiler->input_file.file);
+	assert(process->private != NULL);
+	FILE* source_file = (FILE*)process->private;
+
+	// NOTE: We don't decrement file position here, so we might get an offset the more pushes happen.
+	// It's not as simple as decrementing the column because we then need to be able to go back to previous line's end, so I need
+	// to come up with a decent solution for caching the previous line's length.
+
+	ungetc(c, source_file);
 }

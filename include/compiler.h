@@ -435,10 +435,6 @@ struct lex_process
 	struct vector token_vec;
 	struct compile_process* compiler;
 
-	// How many brackets / parenthesis are open at the current position.
-	int current_expression_count;
-	ubyte* parentheses_buffer;
-
 	struct lex_process_functions functions;
 
 	// Private data the user of the lexer can transfer to the process.

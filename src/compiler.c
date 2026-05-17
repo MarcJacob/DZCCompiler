@@ -41,6 +41,8 @@ int compile_file(const char* filename, const char* out_filename, int flags, int*
 
 	// Create lexer process.
 	struct lex_process* lexer = lex_process_create(compiler, NULL);
+	lexer->private = compiler->input_file.file; // Default lexer functions require the private data pointer to point to the input file.
+												// TODO: Handle passing a in-memory string with alternative lexer functions, for when preprocessing gets implemented.
 	if (!lexer)
 	{
 		COMPILER_EXIT_FAILURE();
