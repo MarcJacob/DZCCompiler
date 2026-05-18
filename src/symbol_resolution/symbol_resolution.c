@@ -60,7 +60,7 @@ int resolve_symbols(struct compile_process* compiler)
 	printf("Symbol generation complete.\n");
 
 	// Report on parsed scopes / symbols.
-	printf("\n\nParsed scopes & symbols:\n\n");
+	printf("\nParsed scopes & symbols:\n");
 	compiler_print_scope_tree(compiler);
 	printf("\n");
 

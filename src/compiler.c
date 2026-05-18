@@ -385,11 +385,20 @@ void compiler_print_scope_tree(struct compile_process* compiler)
 		indent++;
 		for (ui16 symbol_index = 0; symbol_index < scope->symbols.size; symbol_index++)
 		{
+			struct string_ascii str = string_create_ascii("");
 			struct compiled_symbol* symbol = vector_get_ptr(scope->symbols, symbol_index);
 			switch (symbol->symbol_type)
 			{
 			case SYMBOL_TYPE_FUNC:
-				printf("%*sFUNC '%s'\n", indent * 4, "", symbol->symbol_name.str);
+				for (int i = 0; i < symbol->node->value.func.param_var_nodes.size; i++)
+				{
+					char new_param_buff[64];
+					struct parsing_node* param_node = vector_get_val(symbol->node->value.func.param_var_nodes, i, struct parsing_node*);
+					int is_last = i == symbol->node->value.func.param_var_nodes.size - 1;
+					sprintf_s(new_param_buff, sizeof(new_param_buff), is_last ? "%s" : "%s, ", param_node->value.var.type.type_string);
+					string_append_ascii(&str, new_param_buff);
+				}
+				printf("%*sFUNC '%s' (%s) -> %s\n", indent * 4, "", symbol->symbol_name.str, str.str, symbol->node->value.func.return_type.type_string);
 				break;
 			case SYMBOL_TYPE_VAR:
 				printf("%*sVAR %s : %s\n", indent * 4, "", symbol->symbol_name.str, symbol->node->value.var.type.type_string);
@@ -398,6 +407,8 @@ void compiler_print_scope_tree(struct compile_process* compiler)
 				printf("%*sSYMBOL '%s', UNKNOWN TYPE (%d)\n", indent * 4, "", symbol->symbol_name.str, symbol->symbol_type);
 				break;
 			}
+
+			string_free_ascii(&str);
 		}
 		indent--;
 		vector_push(scope_stack, scope);
