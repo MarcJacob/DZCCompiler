@@ -7,6 +7,8 @@ static int parse_symbol_variable(struct compile_process* compiler, struct scope*
 {
 	assert(variable_node != NULL && variable_node->type == NODE_TYPE_VARIABLE);
 
+	compiler->position = variable_node->position;
+
 	// Create new symbol for the variable and add it to the owner scope.
 	struct compiled_symbol var_symbol = {0};
 	var_symbol.node = variable_node;
@@ -82,6 +84,8 @@ static int parse_symbol_function(struct compile_process* compiler, struct scope*
 	func_symbol.symbol_name = string_create_ascii(function_node->value.func.name);
 	func_symbol.symbol_type = SYMBOL_TYPE_FUNC;
 
+	compiler->position = function_node->position;
+
 	if (!scope_push_symbol(owner_scope, func_symbol))
 	{
 		struct compiled_symbol* conflicting = scope_get_symbol_local(owner_scope, func_symbol.symbol_name.str);
@@ -97,14 +101,25 @@ static int parse_symbol_function(struct compile_process* compiler, struct scope*
 		// Only emit an error if this is a *redefinition* or a *name conflict* (because of difference in return type or parameters).
 		if (function_symbols_equivalent(&func_symbol, conflicting))
 		{
+			if ((function_node->flags & NODE_FLAG_IS_DEFINITION) && (conflicting->node->flags & NODE_FLAG_IS_DEFINITION))
+			{
+				// Both symbols are trying to define the function. Return a Redefinition error.
+				compiler_error(compiler, COMPILER_SYMBOL_RESOLVER_ERROR, SYMBOL_RESOLVER_GENERAL_ERROR, 
+					"Symbol redefinition for function '%s'.\n\tPreviously defined in file '%s', line %d col %d.", 
+					func_symbol.symbol_name.str, conflicting->node->position.filename, conflicting->node->position.line, conflicting->node->position.col);
+				string_free_ascii(&func_symbol.symbol_name);
+				return 0;
+			}
 			// Return success without pushing anything to the scope, effectively ignoring the new symbol as a perfect duplicate of an already-declared symbol.
 			string_free_ascii(&func_symbol.symbol_name);
 			return 1;
 		}
 		else
 		{
-			// Non-equivalent function symbols with the same scope and name = redefinition error.
-			compiler_error(compiler, COMPILER_SYMBOL_RESOLVER_ERROR, SYMBOL_RESOLVER_GENERAL_ERROR, "Symbol redefinition for function '%s'.", func_symbol.symbol_name.str);
+			// Non-equivalent function symbols with the same scope and name = imcompatibility error.
+			compiler_error(compiler, COMPILER_SYMBOL_RESOLVER_ERROR, SYMBOL_RESOLVER_GENERAL_ERROR, 
+				"Symbol '%s' incompatible with previous definition in file '%s', line %d col %d.", 
+				func_symbol.symbol_name.str, conflicting->node->position.filename, conflicting->node->position.line, conflicting->node->position.col);
 			string_free_ascii(&func_symbol.symbol_name);
 			return 0;
 		}
@@ -136,6 +151,13 @@ int resolve_symbols(struct compile_process* compiler)
 			parse_symbol_function(compiler, compiler_get_global_scope(compiler), root);
 			break;
 		}
+
+		if (compiler_has_error(compiler)) break;
+	}
+
+	if (compiler_has_error(compiler))
+	{
+		return compiler->stage_error;
 	}
 
 	printf("Symbol generation complete.\n");

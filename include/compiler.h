@@ -479,7 +479,6 @@ enum
 	NODE_TYPE_STATEMENT_DEFAULT,
 	NODE_TYPE_STATEMENT_GOTO,
 
-
 	NODE_TYPE_STATEMENT_UNARY,
 	NODE_TYPE_STATEMENT_TERNARY,
 	NODE_TYPE_STATEMENT_LABEL,
@@ -492,7 +491,7 @@ enum
 
 enum
 {
-	NODE_FLAG_IS_DEFINITION, // If applicable, does this node define or only *declare* a symbol ?
+	NODE_FLAG_IS_DEFINITION = 1 << 0, // If applicable, does this node define or only *declare* a symbol ?
 };
 
 struct parsing_node

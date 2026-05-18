@@ -641,7 +641,7 @@ static int parse_function(struct tree_parsing_context* tree, struct parser_token
 	}
 
 	token = token->next;
-	
+
 	// Start parsing comma-separated parameter as variable nodes.
 
 	struct vector params_vector = vector_create(struct parsing_node*, 2);
@@ -701,22 +701,52 @@ static int parse_function(struct tree_parsing_context* tree, struct parser_token
 		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Expected closing parenthesis enclosing function parameters.");
 		return 0;
 	}
-	
+
 	// Advance past ')'
 	token = token->next;
 
-	// TODO: Parse function body if next token is '{'.
+	int is_definition = 0;
+	if (token->token->type == TOKEN_TYPE_SYMBOL
+		&& token->token->value.cval == '{')
+	{
+		is_definition = 1; // Make sure the function node created later is flagged as a definition, not a simple declaration.
 
-	if (token->token->type != TOKEN_TYPE_SYMBOL
-		|| token->token->value.cval != ';')
+		token = token->next;
+		
+		while (token != NULL)
+		{
+			tree->compiler->position = token->token->position;
+			// TODO: Parse statements, variable declarations, and sub-scopes.
+
+			if (token->token->type == TOKEN_TYPE_SYMBOL
+				&& token->token->value.cval == '}')
+			{
+				break;
+			}
+
+			token = token->next;
+		}
+
+		if (token == NULL)
+		{
+			compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Encountered EOF while parsing function body.");
+			return 0;
+		}
+		
+		token = token->next;
+	}
+	else if (token->token->type == TOKEN_TYPE_SYMBOL
+		&& token->token->value.cval == ';')
+	{
+		// Advance past ';'.
+		token = token->next;
+	}
+	else
 	{
 		tree->compiler->position = token->token->position;
 		compiler_error(tree->compiler, COMPILER_PARSER_ERROR, PARSER_GENERAL_ERROR, "Expected ';' following function declaration");
 		return 0;
 	}
-
-	// Advance past ';'.
-	token = token->next;
 
 	// Create and push function node.
 	struct parsing_node* func_node = calloc(1, sizeof(struct parsing_node));
@@ -727,6 +757,8 @@ static int parse_function(struct tree_parsing_context* tree, struct parser_token
 	func_node->value.func.name = func_name_token->token->value.strval.str;
 	func_node->value.func.param_var_nodes = params_vector;
 	func_node->value.func.return_type = *return_type;
+
+	func_node->flags |= NODE_FLAG_IS_DEFINITION * is_definition;
 
 	push_node_to_tree(tree, func_node);
 
