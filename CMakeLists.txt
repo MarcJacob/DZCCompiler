@@ -3,7 +3,7 @@
 project ("DZCCompiler")
 
 # Single translation unit.
-add_executable (DZCCompiler "src/main.c")
+add_executable (DZCCompiler "src/main.c" "out/build/x64-debug-sanitize/compile_test_target.c")
 
 # Set standard to C99.
 set_property(TARGET DZCCompiler PROPERTY C_STANDARD 99)

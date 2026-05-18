@@ -490,6 +490,11 @@ enum
 	NODE_TYPE_STATEMENT_BLANK,
 };
 
+enum
+{
+	NODE_FLAG_IS_DEFINITION, // If applicable, does this node define or only *declare* a symbol ?
+};
+
 struct parsing_node
 {
 	int type;

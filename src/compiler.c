@@ -431,7 +431,7 @@ int scope_push_symbol(struct scope* scope, struct compiled_symbol symbol)
 	assert(scope != NULL);
 	assert(symbol.symbol_name.length > 0);
 
-	// Check that symbol doesn't already exist in the scope. If it does, do nothing and return.
+	// Check that symbol doesn't already exist in the scope. If it does, return failure.
 	if (scope_get_symbol_local(scope, symbol.symbol_name.str))
 	{
 		return 0;
